@@ -1,0 +1,12 @@
+# Placeholder — deployment is out of scope until well past Phase 5.
+# Manual trigger only so this never runs or fails on push.
+name: deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No deployment configured yet."

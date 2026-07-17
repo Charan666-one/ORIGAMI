@@ -1,0 +1,16 @@
+[MAIN]
+py-version = 3.11
+ignore-paths = platform/.*,
+               assets/.*,
+               docker/.*,
+               scripts/.*
+
+[MESSAGES CONTROL]
+disable = missing-module-docstring,
+          missing-class-docstring,
+          missing-function-docstring,
+          too-few-public-methods,
+          fixme
+
+[FORMAT]
+max-line-length = 100
