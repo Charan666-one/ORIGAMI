@@ -140,6 +140,7 @@ via CLI/subscription doesn't need it).
 
 | Doc | Read when |
 |-----|-----------|
+| `docs/PURPOSE.md` | **the north star — read FIRST.** Original vision: modular AI OS → humanoid robot in 5 stages. The robot is the endgame; Developer OS is Stages 1–2. Two guardrails against drift. |
 | `docs/VISION.md` | you need the why / the capability backlog |
 | `docs/ARCHITECTURE.md` | building any `core/` or engine contract |
 | `docs/ROADMAP.md` | deciding what to build next (phase + exit criteria) |
