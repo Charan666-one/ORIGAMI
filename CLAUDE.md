@@ -87,7 +87,16 @@ The docs sometimes use clean conceptual names; build in the existing homes:
 - **Scoreboard: `docs/CHECKPOINTS.md`** — one checkpoint at a time, tag when its
   boxes are all checked. Next: **C1 (the spine + play music, tag `v0.2.0`)**.
 
-## What to build next — follow `docs/ROADMAP.md` in order
+## What to build next — follow `docs/CHECKPOINTS.md` (authoritative ladder)
+
+**Next up: C1 — the spine + 3-tier permissions (tag `v0.2.0`).** Bake the
+`Risk` enum (`SAFE` / `CONFIRM` / `CRITICAL`) into `core/schemas/tool.py` from
+day one; the executor enforces it. Free/keyless via `EchoEngine` — no paid API
+key is required by any checkpoint. Ladder: C1 spine → C2 real actions →
+C3 messaging (preview→approve) → C4 memory → C5 **Goal Mode** → C6 proactive brief.
+
+<details>
+<summary>Legacy phase notes (superseded by CHECKPOINTS.md ordering)</summary>
 
 - **Phase 0 (½ day):** fill `pyproject.toml` / `requirements*.txt` / `README.md`
   (done) / `.env.example`; delete the broken conversation agent; ensure
@@ -105,8 +114,10 @@ The docs sometimes use clean conceptual names; build in the existing homes:
 - **Phase 4:** project memory ("continue <project>").
 - **Phase 5:** proactive event-driven workflows.
 
-Work one phase at a time. Do not start Phase N+1 until Phase N's exit criteria in
-`docs/ROADMAP.md` are green. One commit per phase minimum.
+</details>
+
+Work one checkpoint at a time. Do not start C(n+1) until C(n)'s boxes in
+`docs/CHECKPOINTS.md` are all checked. One commit per checkpoint minimum; tag on close.
 
 ---
 
