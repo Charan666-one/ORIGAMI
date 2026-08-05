@@ -58,13 +58,17 @@ class SpotifyAuth:
         self,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
-        redirect_uri: str = "http://localhost:8888/callback",
+        redirect_uri: Optional[str] = None,
         scopes: list[str] = DEFAULT_SCOPES,
         token_path: Path = DEFAULT_TOKEN_PATH,
     ) -> None:
         self.client_id = client_id or os.getenv("SPOTIFY_CLIENT_ID", "")
         self.client_secret = client_secret or os.getenv("SPOTIFY_CLIENT_SECRET", "")
-        self.redirect_uri = redirect_uri
+        # Spotify no longer allows "localhost" for new apps — default to loopback IP.
+        self.redirect_uri = (
+            redirect_uri
+            or os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
+        )
         self.scopes = scopes
         self.token_path = token_path
 

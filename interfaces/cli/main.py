@@ -15,6 +15,16 @@ from core.schemas.plan import Step
 from core.schemas.tool import Risk, ToolSpec
 
 
+def _load_env() -> None:
+    """Load a repo-root .env if present so SPOTIFY_* etc. are available. Optional —
+    absence is fine (the slice still runs keyless)."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+
 async def _cli_confirmer(spec: ToolSpec, step: Step) -> bool:
     if spec.risk is Risk.CRITICAL:
         print(f"🔴 CRITICAL: {spec.name} — {spec.description}")
@@ -25,6 +35,7 @@ async def _cli_confirmer(spec: ToolSpec, step: Step) -> bool:
 
 
 def main() -> int:
+    _load_env()
     text = " ".join(sys.argv[1:]).strip()
     if not text:
         print('Usage: origami "<what you want>"   e.g. origami "play some lofi"')
