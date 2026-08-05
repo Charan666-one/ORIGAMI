@@ -19,6 +19,8 @@ scoreboard — the single source of truth for what to build next.
 5. **Tag the moment a checkpoint closes:** `git tag vX.Y.0 && git push --tags`.
 6. **Robot trees stay parked, never deleted** — Stage 5 is the destination.
 7. If a checkpoint stalls > 2 sessions, **shrink its scope** — never skip criteria.
+8. **The 5-ability law** (`PURPOSE.md`): every feature must improve Understand,
+   Plan, Execute, Remember, or Monitor — else it does not belong in Core.
 
 ## Cost & hardware reality (8 GB M1 Air)
 
@@ -97,7 +99,9 @@ class Risk(str, Enum):
 **The spine**
 - [ ] `core/planner.py` — Goal → Plan (engine + keyword fallback)
 - [ ] `core/executor.py` — run steps; **enforce Risk**: SAFE auto-runs, CONFIRM
-      prompts, CRITICAL demands typed approval; publish to existing `event_bus`
+      prompts, CRITICAL demands typed approval; publish to existing `event_bus`.
+      Include a **verification hook** after each step (trivial in C1: did the tool
+      return success?) — the lifecycle's Verification stage, grown later
 - [ ] `core/orchestrator.py` + `session.py` + `context.py`
 
 **First skill + surface**

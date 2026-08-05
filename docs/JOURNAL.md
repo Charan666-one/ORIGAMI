@@ -186,3 +186,114 @@ are required to build and test it (EchoEngine + fake Spotify client).
   `source .venv/bin/activate`. Do not create empty folders ahead of need.
 - **Definition of done for the session:** as many C1 boxes checked as possible,
   `pytest` green keyless, committed. Do not end with red tests on `main`.
+
+---
+
+## Session 002 — 2026-08-05
+
+### Session Summary
+
+A **vision-refinement session**, no engine code. The owner supplied a
+significantly expanded and sharpened statement of ORIGAMI's purpose ("The AI
+Operating System for Human Potential"). It does not contradict the founding
+spec — it deepens it — so `docs/PURPOSE.md` was rewritten as the new canonical
+north star, several new principles were absorbed into the build docs, and
+persistent memory was updated. The checkpoint ladder still holds; only small
+additions were made to reflect the new Verification step and the 5-ability law.
+
+### Completed Work
+
+- **Rewrote `docs/PURPOSE.md`** as the superseding canonical vision, integrating
+  the richer spec while preserving the 5-stage robot endgame and the two
+  anti-drift guardrails.
+- **`docs/CHECKPOINTS.md`** — added the 5-ability law as rule #8; added a
+  **verification hook** requirement to the C1 executor box (the lifecycle's
+  Verification stage, trivial in C1, grown later).
+- **Updated memory** `origami-original-purpose` — replaced the agent-centric
+  architecture note with the layer-based stack, the universal lifecycle, the
+  5-ability law, the "model is not ORIGAMI" tenet, offline-first ordering, and
+  the Monitoring/Executive engines.
+
+### Important Decisions
+
+- **Architecture reframed as LAYERS, not agents.** *Why:* the new spec explicitly
+  states ORIGAMI is "built around layers rather than individual agents." This is a
+  clarification, not a rewrite — the existing planner→registry→executor spine is
+  already layer-based. Effect: we stop thinking in terms of autonomous agents for
+  Stages 1–2 and think in terms of a fixed pipeline (Conversation → Intent →
+  Context → Planning → Workflow → Capability Registry → Execution → Verification →
+  Memory → Knowledge → Brain Interface). Agents, if any, return only in Stage 3.
+- **Adopted the Universal Lifecycle with an explicit Verification step.** *Why:*
+  the founding spec ended at Execution → Memory; the new one inserts
+  **Verification** (did the action achieve the intent?) and makes **Monitoring**
+  a first-class ongoing stage. Recorded so the executor grows a verification hook
+  from C1 onward rather than bolting it on later.
+- **Adopted the Fundamental Engineering Law (5 abilities).** *Why:* the owner
+  wants a hard filter against scope creep — every feature must improve Understand,
+  Plan, Execute, Remember, or Monitor, or it stays out of Core. Added as an
+  explicit checklist rule.
+- **Elevated provider-independence to a core tenet ("the model is NOT ORIGAMI").**
+  *Why:* the reasoning model must be replaceable behind one `LLMEngine` interface
+  with zero redesign. This locks in the already-planned Brain Interface and
+  validates EchoEngine-first / local-first: the model is a swappable part, not the
+  system.
+- **Confirmed the 3-tier permission model.** *Why:* the new spec independently
+  specifies exactly the SAFE / CONFIRM / CRITICAL tiers we committed in Session
+  001 — external validation that the decision was right. No change needed.
+- **Kept the checkpoint ladder unchanged.** *Why:* the new engines (Monitoring,
+  Executive, Knowledge, Verification) already map onto existing checkpoints
+  (C4 memory, C5 Goal Mode, C6 brief) and lifecycle stages. No reorder warranted;
+  only annotations added. Avoided the temptation to scaffold new engine folders
+  (guardrail #2).
+
+### Current Architecture
+
+Refined framing (see `PURPOSE.md`): a **layered pipeline**, not agents. Control
+spine = the Universal Lifecycle. The reasoning model sits behind a **Brain
+Interface** and is replaceable. New named engines on the roadmap: **Verification**
+(after execution), **Knowledge** (local retrieval before external AI),
+**Monitoring** (consent-based, continuous), **Executive** (proactive briefs).
+Repo directory mapping is unchanged; no code moved. Real code today is still only
+`adapters/*`, `core/events.py`, base classes.
+
+### Current Project Status
+
+- **Current Version:** `v0.1.0` (unchanged — this was a docs/vision session)
+- **Completed Milestones:** C0 — Package installs.
+- **Current Milestone:** C1 — The spine + 3-tier permissions (`v0.2.0`). Not started.
+- **Current Branch:** `main` (clean; committed & pushed).
+- **Project Health:** 🟢 Healthy. Vision is now richer, current, and committed;
+  build plan is consistent with it; no runnable capability yet (expected).
+
+### Remaining Tasks (highest priority first)
+
+Unchanged from Session 001: **C1 spine** → C2 real actions → C3 messaging →
+C4 memory → C5 Goal Mode → C6 proactive brief → v1.0.0. The new Monitoring/
+Executive/Knowledge/Verification concepts are folded into C4–C6 and the executor,
+not added as separate checkpoints.
+
+### Blockers
+
+None.
+
+### Lessons Learned
+
+- **Capture vision revisions as first-class history.** A sharpened vision is a real
+  project event; recording *what changed and why* prevents future confusion about
+  when "layers, not agents" or "the 5-ability law" entered the design.
+- **Validation is a decision too.** The new spec independently re-derived the
+  3-tier permission model — worth recording as confirmation, not silently skipping.
+- **Resist scaffolding on inspiration.** A richer vision tempts new empty folders
+  (Monitoring/Executive engines). Guardrail #2 held: annotate the plan, build the
+  slice when its checkpoint arrives.
+
+### Next Session — resume here (unchanged from Session 001)
+
+- **Current module:** `core/schemas/` (start of Checkpoint C1).
+- **Current files (empty, waiting):** `core/schemas/goal.py`, `tool.py`, `plan.py`,
+  `result.py`, `core/exceptions.py`.
+- **Expected first task:** `core/schemas/goal.py` →
+  `Goal(text, source, context, session_id)`, then `core/schemas/tool.py` with the
+  `Risk(SAFE|CONFIRM|CRITICAL)` enum. Follow the C1 build order in
+  `docs/CHECKPOINTS.md` top-to-bottom. `source .venv/bin/activate` first. No empty
+  folders ahead of need. Remember the executor now needs a verification hook.
