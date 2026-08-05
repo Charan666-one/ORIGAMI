@@ -41,8 +41,9 @@ origami = "interfaces.cli.main:main"
 py-modules = ["main"]
 
 [tool.setuptools.packages.find]
-# platform/ is deliberately excluded: robot heritage (STRUCTURE.md §4), and its
-# name would shadow the stdlib `platform` module if installed.
+# platforms/ (robot heritage, STRUCTURE.md §4) is excluded from packaging. It was
+# renamed from platform/ so it can never shadow the stdlib `platform` module even
+# when the repo root is on sys.path (compat editable mode).
 include = [
     "core*",
     "engines*",
@@ -54,7 +55,7 @@ include = [
 ]
 exclude = [
     "tests*",
-    "platform*",
+    "platforms*",
     "docs*",
     "assets*",
     "scripts*",

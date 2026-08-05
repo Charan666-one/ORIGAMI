@@ -1,6 +1,6 @@
 [MAIN]
 py-version = 3.11
-ignore-paths = platform/.*,
+ignore-paths = platforms/.*,
                assets/.*,
                docker/.*,
                scripts/.*

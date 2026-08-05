@@ -1,13 +1,19 @@
 """SpotifySkill — wraps the existing adapters/spotify/client.py (never reimplements).
 
-Proves the engine end-to-end. Playback tools are SAFE (no consequence to others).
-The client is created lazily so building the orchestrator never requires Spotify
-credentials — only actually *calling* a tool touches the network.
+Playback tools are SAFE (no consequence to others). The client is created lazily
+so building the orchestrator never requires credentials.
+
+"Just play it" behaviour: if no Spotify device is active, the skill launches the
+Spotify desktop app, waits for it to register as a Connect device, and targets it
+directly — so the user never has to pre-open Spotify.
 """
 
 from __future__ import annotations
 
-from typing import Any, List
+import subprocess
+import sys
+import time
+from typing import Any, List, Optional
 
 from core.schemas.tool import Risk, ToolSpec
 from skills.base import Skill
@@ -28,7 +34,7 @@ class SpotifySkill(Skill):
         return [
             ToolSpec(
                 name="spotify.search_and_play",
-                description="Search Spotify and play the top result.",
+                description="Open Spotify if needed, then search and play the top result.",
                 params={"query": "what to search for and play"},
                 risk=Risk.SAFE,
                 keywords=("play", "listen to", "put on"),
@@ -64,15 +70,54 @@ class SpotifySkill(Skill):
             return self._control(self.client.previous_track, "Back to previous track")
         raise ValueError(f"Unknown tool: {tool}")
 
+    # ------------------------------------------------------------------ helpers
+
     def _search_and_play(self, query: str) -> str:
         results = self.client.search(query, types=["track"], limit=1)
         items = results.get("tracks", {}).get("items", [])
         if not items:
             return f"Nothing found for '{query}'"
         track = items[0]
-        self.client.play(uris=[track["uri"]])
+
+        device_id = self._ensure_device()
+        if device_id is None:
+            return ("Couldn't reach a Spotify device — open the Spotify app and "
+                    "try again (it may still be starting up).")
+
+        self.client.play(uris=[track["uri"]], device_id=device_id)
         artists = ", ".join(a["name"] for a in track.get("artists", []))
         return f"Playing: {track['name']} — {artists}" if artists else f"Playing: {track['name']}"
+
+    def _ensure_device(self, wait_seconds: float = 15.0) -> Optional[str]:
+        """Return a Spotify device id to play on, launching the app if none exist.
+
+        Prefers an already-active device; otherwise the first available one. If no
+        devices are registered, opens the Spotify desktop app and polls until one
+        appears (or the timeout elapses)."""
+        devices = self.client.list_devices()
+        if not devices:
+            self._launch_spotify_app()
+            deadline = time.time() + wait_seconds
+            while time.time() < deadline and not devices:
+                time.sleep(1.5)
+                devices = self.client.list_devices()
+        if not devices:
+            return None
+        active = next((d for d in devices if d.get("is_active")), None)
+        return (active or devices[0]).get("id")
+
+    @staticmethod
+    def _launch_spotify_app() -> None:
+        """Open the Spotify desktop app (SAFE). macOS today; extend per-OS later."""
+        try:
+            if sys.platform == "darwin":
+                subprocess.run(["open", "-a", "Spotify"], check=False)
+            elif sys.platform.startswith("win"):
+                subprocess.run(["cmd", "/c", "start", "spotify:"], check=False)
+            else:  # linux
+                subprocess.run(["spotify"], check=False)
+        except Exception:
+            pass  # best-effort; _ensure_device handles the no-device case
 
     @staticmethod
     def _control(action, ok_message: str) -> str:
@@ -85,5 +130,5 @@ class SpotifySkill(Skill):
             if "Restriction violated" in msg:
                 return "Spotify won't allow that right now (nothing to skip to in the current context)."
             if "No active device" in msg:
-                return "No active Spotify device — open Spotify and play something first."
+                return "No active Spotify device — try 'play <song>' first to wake it up."
             raise

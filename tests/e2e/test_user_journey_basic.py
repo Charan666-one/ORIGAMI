@@ -38,6 +38,10 @@ class FakeSpotifyClient:
 
     def play(self, uris=None, **kwargs):
         self.played_uris = uris
+        self.played_device = kwargs.get("device_id")
+
+    def list_devices(self):
+        return [{"id": "fakeDevice", "is_active": True, "name": "Fake Speaker"}]
 
 
 # ---------------------------------------------------------------- slice works
