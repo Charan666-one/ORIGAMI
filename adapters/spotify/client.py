@@ -48,7 +48,7 @@ class SpotifyClient:
             timeout=self._timeout,
         )
         self._raise_for_status(resp)
-        return resp.json() if resp.content else {}
+        return self._json(resp)
 
     def _post(self, path: str, body: Optional[dict] = None) -> Any:
         resp = self._session.post(
@@ -58,7 +58,7 @@ class SpotifyClient:
             timeout=self._timeout,
         )
         self._raise_for_status(resp)
-        return resp.json() if resp.content else {}
+        return self._json(resp)
 
     def _put(self, path: str, body: Optional[dict] = None, params: Optional[dict] = None) -> Any:
         resp = self._session.put(
@@ -69,7 +69,7 @@ class SpotifyClient:
             timeout=self._timeout,
         )
         self._raise_for_status(resp)
-        return resp.json() if resp.content else {}
+        return self._json(resp)
 
     def _delete(self, path: str, body: Optional[dict] = None) -> None:
         resp = self._session.delete(
@@ -79,6 +79,17 @@ class SpotifyClient:
             timeout=self._timeout,
         )
         self._raise_for_status(resp)
+
+    @staticmethod
+    def _json(resp: requests.Response) -> Any:
+        """Parse a JSON body, tolerating empty/no-content responses (204, player
+        commands) that would otherwise crash json.loads with 'Expecting value'."""
+        if not resp.content:
+            return {}
+        try:
+            return resp.json()
+        except ValueError:
+            return {}
 
     @staticmethod
     def _raise_for_status(resp: requests.Response) -> None:

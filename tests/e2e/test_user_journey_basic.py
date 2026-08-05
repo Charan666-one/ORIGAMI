@@ -20,10 +20,24 @@ class FakeSpotifyClient:
 
     def __init__(self):
         self.last_query = None
+        self.played_uris = None
 
-    def search_and_play(self, query, track_type="track"):
+    def search(self, query, types=("track",), limit=1):
         self.last_query = query
-        return "Lofi Girl — beats to relax/study to"
+        return {
+            "tracks": {
+                "items": [
+                    {
+                        "name": "Lofi Girl",
+                        "uri": "spotify:track:fake123",
+                        "artists": [{"name": "Lofi Records"}],
+                    }
+                ]
+            }
+        }
+
+    def play(self, uris=None, **kwargs):
+        self.played_uris = uris
 
 
 # ---------------------------------------------------------------- slice works

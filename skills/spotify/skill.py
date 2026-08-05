@@ -55,16 +55,35 @@ class SpotifySkill(Skill):
 
     async def execute(self, tool: str, **kwargs) -> Any:
         if tool == "spotify.search_and_play":
-            query = kwargs.get("query", "")
-            played = self.client.search_and_play(query)
-            return f"Playing: {played}" if played else f"Nothing found for '{query}'"
+            return self._search_and_play(kwargs.get("query", ""))
         if tool == "spotify.pause":
-            self.client.pause()
-            return "Paused"
+            return self._control(self.client.pause, "Paused")
         if tool == "spotify.next_track":
-            self.client.next_track()
-            return "Skipped to next track"
+            return self._control(self.client.next_track, "Skipped to next track")
         if tool == "spotify.previous_track":
-            self.client.previous_track()
-            return "Back to previous track"
+            return self._control(self.client.previous_track, "Back to previous track")
         raise ValueError(f"Unknown tool: {tool}")
+
+    def _search_and_play(self, query: str) -> str:
+        results = self.client.search(query, types=["track"], limit=1)
+        items = results.get("tracks", {}).get("items", [])
+        if not items:
+            return f"Nothing found for '{query}'"
+        track = items[0]
+        self.client.play(uris=[track["uri"]])
+        artists = ", ".join(a["name"] for a in track.get("artists", []))
+        return f"Playing: {track['name']} — {artists}" if artists else f"Playing: {track['name']}"
+
+    @staticmethod
+    def _control(action, ok_message: str) -> str:
+        """Run a playback control, translating Spotify's cryptic errors to plain text."""
+        try:
+            action()
+            return ok_message
+        except Exception as exc:
+            msg = str(exc)
+            if "Restriction violated" in msg:
+                return "Spotify won't allow that right now (nothing to skip to in the current context)."
+            if "No active device" in msg:
+                return "No active Spotify device — open Spotify and play something first."
+            raise
