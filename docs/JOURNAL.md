@@ -297,3 +297,139 @@ None.
   `Risk(SAFE|CONFIRM|CRITICAL)` enum. Follow the C1 build order in
   `docs/CHECKPOINTS.md` top-to-bottom. `source .venv/bin/activate` first. No empty
   folders ahead of need. Remember the executor now needs a verification hook.
+
+---
+
+## Session 003 — 2026-08-05
+
+### Session Summary
+
+**First code session — Checkpoint C1 is DONE.** Built the entire engine spine as
+one vertical slice: `origami "play some lofi"` now flows through all layers
+(CLI → Goal → Planner → EchoEngine → Registry → Executor with the 3-tier risk
+gate + verification hook → Spotify skill wrapping the existing adapter) and
+returns a summary. Four keyless tests pass. The architecture law holds: adding a
+tool touches zero `core/` files. A significant chunk of the session was spent
+diagnosing a broken virtualenv (see Blockers/Lessons). Tagged `v0.2.0`.
+
+### Completed Work
+
+- **Schemas** (`core/schemas/`): `goal.py` (Goal), `tool.py` (ToolSpec + **Risk**
+  enum SAFE/CONFIRM/CRITICAL), `plan.py` (Step, Plan), `result.py` (StepResult,
+  RunResult with `success` + `verified` + `skipped`), and `__init__.py` exports.
+- **Exceptions** (`core/exceptions.py`): OrigamiError hierarchy.
+- **Registry** (`skills/registry.py`, the keystone): `ToolRegistry`, global
+  `registry`, `@tool` decorator, `register_skill()` helper. Overwrite-on-register
+  makes re-composition idempotent.
+- **Skill base** (`skills/base.py`): reworked to `specs()` + `execute(tool, **kw)`.
+- **Brain Interface** (`engines/reasoning/llm.py`): `LLMEngine` ABC + `LLMResponse`
+  + a concrete `keyword_match_plan()` default (the planner's keyword fallback).
+  `providers/echo.py`: `EchoEngine` (keyless, offline).
+- **Spine** (`core/`): `planner.py` (delegates to engine, duck-typed registry —
+  no core→skills import), `executor.py` (**3-tier risk gate**: SAFE auto,
+  CONFIRM/CRITICAL via injected confirmer; **verification hook**; publishes
+  SKILL_EXECUTED/FAILED; graceful per-step error capture), `context.py`,
+  `session.py`, `orchestrator.py`.
+- **First capability** (`skills/spotify/skill.py`): wraps the existing
+  `adapters/spotify/client.py` (lazy client so building never needs creds);
+  exposes search_and_play / pause / next / previous, all SAFE.
+- **Surfaces**: `interfaces/cli/main.py` (argv → Goal → summary; CLI confirmer
+  prompts y/N for CONFIRM, typed-name for CRITICAL) and root `main.py`
+  (`build_orchestrator()` composition root — the one place skills are named).
+- **Test** (`tests/e2e/test_user_journey_basic.py`): 4 keyless tests — play-music
+  slice success (fake client), unknown-goal graceful summary, CRITICAL refused
+  without approval / runs with it, new-tool-registers-without-core-edit.
+- **Packaging**: added `py-modules = ["main"]` so the `origami` console script can
+  import the composition root when installed. Created `interfaces/__init__.py`.
+- **Verified live**: `origami "play some lofi"` runs end-to-end from outside the
+  repo and degrades gracefully without Spotify creds ("...must be set."); unknown
+  goal → "couldn't map"; no args → usage; `pytest` → 4 passed.
+
+### Important Decisions
+
+- **Keyword matching lives in the base `LLMEngine.plan()`, not in core.** *Why:*
+  EchoEngine inherits it as-is (keyless); a real LLM engine overrides `plan()` and
+  calls `super().plan()` as the fallback. This gives "LLM plan + keyword fallback"
+  with zero duplication and no bad layering (core never imports an engine).
+- **Tools carry their own `keywords` in the ToolSpec.** *Why:* the keyless matcher
+  stays fully generic — a new tool becomes reachable by declaring keywords + a
+  `query` param, needing zero edits to the engine or core. Directly serves the
+  architecture test.
+- **`build_orchestrator()` uses a fresh `ToolRegistry`, not the global.** *Why:*
+  avoids cross-test state leakage and honors "avoid global state," while the global
+  registry + `@tool` remain available for import-time self-registration.
+- **Core stays free of concrete skill/engine imports** via dependency injection +
+  `TYPE_CHECKING` hints. *Why:* the one architectural law — adding a capability
+  must never edit core. Verified by a test that registers a brand-new tool.
+- **The Spotify client is created lazily inside the skill.** *Why:* building the
+  orchestrator (and importing anything) must never require credentials; only
+  actually calling a tool touches the network. Enables keyless CI + graceful CLI.
+- **Reverted to setuptools' default editable mode after a fresh venv.** *Why:* see
+  Blockers — the compat `.pth` mode depends on `site` processing `.pth` files,
+  which the corrupted venv had silently disabled. A clean venv restored the
+  default MAPPING finder, which works.
+
+### Current Architecture
+
+No shape change — the C1 slice *realizes* the layered pipeline from `PURPOSE.md`:
+CLI (interfaces) → Goal → ContextBuilder → Planner → EchoEngine (Brain Interface)
+→ ToolRegistry → Executor (risk gate + Verification hook, publishes to the
+existing `event_bus`) → SpotifySkill → adapters/spotify. Real code now exists in
+every layer except memory/knowledge (C4) and agents (later).
+
+### Current Project Status
+
+- **Current Version:** `v0.2.0` (C1 shipped).
+- **Completed Milestones:** C0 (package installs), **C1 (spine + 3-tier permissions)**.
+- **Current Milestone:** C2 — Real actions (terminal + desktop skills, real
+  Spotify creds). Not started.
+- **Current Branch:** `main` (clean after commit; pushed).
+- **Project Health:** 🟢 Healthy and now **runnable**. `origami "..."` works
+  end-to-end keyless. 4 tests green. First user-facing capability exists.
+
+### Remaining Tasks (highest priority first)
+
+1. **C2 — real actions** (`v0.3.0`): `skills/terminal/skill.py` (terminal.run,
+   CONFIRM), `skills/desktop/skill.py` (open apps, SAFE), real Spotify creds for
+   live playback, per-skill YAML config, integration test across all 3 risk tiers.
+2. C3 — messaging with preview→approve (Gmail). 3. C4 — memory. 4. C5 — Goal Mode.
+   5. C6 — proactive brief. 6. v1.0.0.
+
+### Blockers
+
+None outstanding, but one was resolved this session: **the project virtualenv was
+corrupted** — `site` had stopped processing `.pth` files, so editable installs
+silently failed to expose packages to the `origami` console script (while
+`python -c` from the repo root still worked via cwd, which masked the problem).
+Root cause: a homebrew Python 3.11 point-upgrade after the venv was created, so
+`.venv/bin/python3.11` pointed at a changed runtime. **Fix:** delete and recreate
+`.venv` (`python3.11 -m venv .venv`), reinstall `-e ".[dev]"`. If the console
+script ever raises `ModuleNotFoundError: interfaces` again, rebuild the venv first.
+
+### Lessons Learned
+
+- **cwd can mask a broken install.** Because the Bash tool runs from the repo root,
+  `import interfaces` "worked" in diagnostics while the real console script (run
+  from elsewhere) failed. Always verify installed entry points from a *different*
+  directory (`cd /tmp && origami ...`).
+- **A stale venv is a real failure mode after OS package upgrades.** Rebuilding is
+  cheaper than debugging `.pth`/finder internals.
+- **Graceful degradation paid off immediately.** Missing Spotify creds produced a
+  clear one-line message, not a stack trace — the executor's per-step try/except
+  is why the keyless CLI is usable at all.
+- **A vertical slice forces every layer to be real.** Wiring one command end-to-end
+  surfaced the packaging (`py-modules`), the missing `interfaces/__init__.py`, and
+  the venv bug — none of which a folder-by-folder build would have caught.
+
+### Next Session — resume here
+
+- **Current milestone:** C2 (`docs/CHECKPOINTS.md`).
+- **Current module:** `skills/terminal/` and `skills/desktop/`.
+- **Expected first task:** create `skills/terminal/skill.py` wrapping
+  `adapters/terminal/executor.py` → expose `terminal.run` at **Risk.CONFIRM**
+  (first real use of the confirm gate for a raw command). Register it in
+  `main.py:build_orchestrator`. Add `skills/desktop/skill.py` (open apps, SAFE)
+  wrapping `adapters/desktop/mac.py`. Then `tests/integration/test_skill_execution.py`
+  exercising all three risk tiers. **Sanity first:** `source .venv/bin/activate`;
+  if the `origami` script errors on import, rebuild the venv (see Blockers).
+  Verify live with `origami "run echo hello"` (expect a CONFIRM prompt).

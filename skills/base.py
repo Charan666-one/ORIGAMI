@@ -1,39 +1,26 @@
-# skills/base.py
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-from dataclasses import dataclass
+"""Skill — base class for a capability that exposes one or more tools.
 
-@dataclass
-class SkillResult:
-    success: bool
-    result: Any = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = None
+A skill declares its tools via `specs()` (each a ToolSpec, including its Risk
+tier) and runs them via `execute(tool, **kwargs)`. Skills wrap adapters; they
+never reimplement API clients, and they never call each other — only the
+workflow/executor coordinates them.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any, List
+
+from core.schemas.tool import ToolSpec
+
 
 class Skill(ABC):
-    """Base class for all skills"""
-    
-    name: str
-    description: str
-    
+    """Base class for all skills."""
+
     @abstractmethod
-    async def execute(self, **kwargs) -> SkillResult:
-        """Execute the skill with given parameters"""
-        pass
-    
+    def specs(self) -> List[ToolSpec]:
+        """Return the tools this skill provides (name, risk, keywords, ...)."""
+
     @abstractmethod
-    async def stop(self):
-        """Stop execution immediately"""
-        pass
-    
-    @abstractmethod
-    async def status(self) -> Dict[str, Any]:
-        """Return current status"""
-        pass
-    
-    def __init__(self):
-        self._running = False
-    
-    @property
-    def is_running(self) -> bool:
-        return self._running
+    async def execute(self, tool: str, **kwargs) -> Any:
+        """Run one of this skill's tools by name. Raise on failure."""

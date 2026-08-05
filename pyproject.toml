@@ -35,6 +35,11 @@ browser = [
 [project.scripts]
 origami = "interfaces.cli.main:main"
 
+[tool.setuptools]
+# the composition root lives in repo-root main.py (STRUCTURE.md); ship it so the
+# `origami` console script can import build_orchestrator when installed.
+py-modules = ["main"]
+
 [tool.setuptools.packages.find]
 # platform/ is deliberately excluded: robot heritage (STRUCTURE.md §4), and its
 # name would shadow the stdlib `platform` module if installed.

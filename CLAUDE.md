@@ -84,8 +84,15 @@ The docs sometimes use clean conceptual names; build in the existing homes:
   Makefile, pylint, CI workflows, `.vscode/`; broken conversation agent deleted
   (rebuild in Phase 3); `pip install -e ".[dev]"` + all imports + pytest verified.
 - ◦ Empty: the whole brain, skills, engines, interfaces. Project does not run yet.
+- ✅ **C1 done (`v0.2.0`)**: the engine spine runs. `origami "play some lofi"`
+  flows CLI→planner→registry→executor (3-tier risk gate + verification)→Spotify
+  skill, keyless via EchoEngine. 4 tests green. Real code now in every layer
+  except memory (C4).
 - **Scoreboard: `docs/CHECKPOINTS.md`** — one checkpoint at a time, tag when its
-  boxes are all checked. Next: **C1 (the spine + play music, tag `v0.2.0`)**.
+  boxes are all checked. Next: **C2 (real actions — terminal + desktop skills)**.
+- ⚠️ If the `origami` script raises `ModuleNotFoundError: interfaces`, the venv is
+  stale (homebrew python upgrade) — rebuild: `rm -rf .venv && python3.11 -m venv
+  .venv && .venv/bin/pip install -e ".[dev]"`.
 
 ## What to build next — follow `docs/CHECKPOINTS.md` (authoritative ladder)
 

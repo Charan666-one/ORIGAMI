@@ -39,7 +39,7 @@ scoreboard — the single source of truth for what to build next.
 | CP | Tag | You can then… | Stage |
 |----|-----|---------------|-------|
 | **C0** ✅ | `v0.1.0` | install & import the project | — |
-| **C1** ⭐ | `v0.2.0` | run one free command end-to-end + 3-tier permissions | 1 |
+| **C1** ⭐ ✅ | `v0.2.0` | run one free command end-to-end + 3-tier permissions | 1 |
 | **C2** | `v0.3.0` | real actions: play music, open apps, run commands | 1 |
 | **C3** ⭐ | `v0.4.0` | send messages with preview → approve (email first) | 1–2 |
 | **C4** | `v0.5.0` | remember projects, people, preferences | 2 |
@@ -65,18 +65,18 @@ ORIGAMI to build ORIGAMI, but **not required** by any checkpoint above.
 
 ---
 
-## C1 — The spine + 3-tier permissions (`v0.2.0`) ⭐
+## C1 — The spine + 3-tier permissions (`v0.2.0`) ⭐ ✅ 2026-08-05
 
 **Goal:** `origami "play some lofi"` flows through every layer with zero keys.
-Build in this order — each file is small.
+Build in this order — each file is small. **All boxes verified by commands run.**
 
 **Schemas & core contracts**
-- [ ] `core/schemas/goal.py` — `Goal(text, source, context, session_id)`
-- [ ] `core/schemas/tool.py` — `ToolSpec(name, description, params, risk)` with the
+- [x] `core/schemas/goal.py` — `Goal(text, source, context, session_id)`
+- [x] `core/schemas/tool.py` — `ToolSpec(name, description, params, risk)` with the
       **`Risk` enum below**
-- [ ] `core/schemas/plan.py` — `Step`, `Plan`
-- [ ] `core/schemas/result.py` — `StepResult`, `RunResult`
-- [ ] `core/exceptions.py` — small `OrigamiError` hierarchy
+- [x] `core/schemas/plan.py` — `Step`, `Plan`
+- [x] `core/schemas/result.py` — `StepResult`, `RunResult`
+- [x] `core/exceptions.py` — small `OrigamiError` hierarchy
 
 **The permission model (bake in now — expensive to retrofit)**
 ```python
@@ -88,34 +88,34 @@ class Risk(str, Enum):
 ```
 
 **The keystone**
-- [ ] `skills/registry.py` — `ToolRegistry`, global `registry`, `@tool` decorator
+- [x] `skills/registry.py` — `ToolRegistry`, global `registry`, `@tool` decorator
       (self-registration; **no `if/elif` on intent anywhere in `core/`**)
-- [ ] `skills/base.py` — extend existing `Skill` with `specs()` + `execute(tool, **kw)`
+- [x] `skills/base.py` — extend existing `Skill` with `specs()` + `execute(tool, **kw)`
 
 **The brain (free tier)**
-- [ ] `engines/reasoning/llm.py` — `LLMEngine` ABC + `LLMResponse`
-- [ ] `engines/reasoning/providers/echo.py` — `EchoEngine`, keyword match, keyless
+- [x] `engines/reasoning/llm.py` — `LLMEngine` ABC + `LLMResponse`
+- [x] `engines/reasoning/providers/echo.py` — `EchoEngine`, keyword match, keyless
 
 **The spine**
-- [ ] `core/planner.py` — Goal → Plan (engine + keyword fallback)
-- [ ] `core/executor.py` — run steps; **enforce Risk**: SAFE auto-runs, CONFIRM
+- [x] `core/planner.py` — Goal → Plan (engine + keyword fallback)
+- [x] `core/executor.py` — run steps; **enforce Risk**: SAFE auto-runs, CONFIRM
       prompts, CRITICAL demands typed approval; publish to existing `event_bus`.
       Include a **verification hook** after each step (trivial in C1: did the tool
       return success?) — the lifecycle's Verification stage, grown later
-- [ ] `core/orchestrator.py` + `session.py` + `context.py`
+- [x] `core/orchestrator.py` + `session.py` + `context.py`
 
 **First skill + surface**
-- [ ] `skills/spotify/skill.py` — wrap existing `adapters/spotify/client.py`
+- [x] `skills/spotify/skill.py` — wrap existing `adapters/spotify/client.py`
       (`spotify.search_and_play` = SAFE). **Wrap, don't reimplement.**
-- [ ] `interfaces/cli/main.py` + root `main.py` composition root
-- [ ] `tests/e2e/test_user_journey_basic.py` — fake Spotify client + EchoEngine
+- [x] `interfaces/cli/main.py` + root `main.py` composition root
+- [x] `tests/e2e/test_user_journey_basic.py` — fake Spotify client + EchoEngine
 
 **Exit criteria — all must pass**
-- [ ] `origami "play some lofi"` returns a summary with **no keys at all**
-- [ ] `pytest` green in CI, keyless
-- [ ] a `CRITICAL` test tool **refuses** to run without explicit approval
-- [ ] **the architecture test:** adding a 2nd Spotify tool touches **zero** `core/` files
-- [ ] tag `v0.2.0`
+- [x] `origami "play some lofi"` returns a summary with **no keys at all**
+- [x] `pytest` green in CI, keyless
+- [x] a `CRITICAL` test tool **refuses** to run without explicit approval
+- [x] **the architecture test:** adding a 2nd Spotify tool touches **zero** `core/` files
+- [x] tag `v0.2.0`
 
 > If that last box fails, the abstraction is wrong. **Stop and fix it before C2.**
 
