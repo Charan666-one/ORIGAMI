@@ -91,8 +91,10 @@ The docs sometimes use clean conceptual names; build in the existing homes:
 - **Scoreboard: `docs/CHECKPOINTS.md`** — one checkpoint at a time, tag when its
   boxes are all checked. Next: **C2 (real actions — terminal + desktop skills)**.
 - ⚠️ If the `origami` script raises `ModuleNotFoundError: interfaces`, the venv is
-  stale (homebrew python upgrade) — rebuild: `rm -rf .venv && python3.11 -m venv
-  .venv && .venv/bin/pip install -e ".[dev]"`.
+  stale (homebrew python point-upgrade breaks the symlinked venv). **Durable fix**
+  — rebuild with `--copies` so it no longer depends on the homebrew symlink:
+  `rm -rf .venv && python3.11 -m venv --copies .venv && .venv/bin/pip install -e
+  ".[dev]"`. Always verify from a different dir: `cd /tmp && .../.venv/bin/origami "x"`.
 
 ## What to build next — follow `docs/CHECKPOINTS.md` (authoritative ladder)
 
