@@ -90,11 +90,13 @@ The docs sometimes use clean conceptual names; build in the existing homes:
   except memory (C4).
 - **Scoreboard: `docs/CHECKPOINTS.md`** — one checkpoint at a time, tag when its
   boxes are all checked. Next: **C2 (real actions — terminal + desktop skills)**.
-- ⚠️ If the `origami` script raises `ModuleNotFoundError: interfaces`, the venv is
-  stale (homebrew python point-upgrade breaks the symlinked venv). **Durable fix**
-  — rebuild with `--copies` so it no longer depends on the homebrew symlink:
-  `rm -rf .venv && python3.11 -m venv --copies .venv && .venv/bin/pip install -e
-  ".[dev]"`. Always verify from a different dir: `cd /tmp && .../.venv/bin/origami "x"`.
+- ⚠️ If the `origami` script raises `ModuleNotFoundError: interfaces`: the macOS
+  homebrew-python venv breaks two ways — (1) `brew upgrade` invalidates a
+  *symlinked* venv, (2) setuptools' default editable **MAPPING finder** is
+  *intermittently* unreliable here (works then fails seconds later). **Durable fix
+  (both):** `make venv` — rebuilds with `--copies` (survives brew upgrades) and
+  installs editable in **compat mode** (plain `.pth`, no finder). Verified 18/18
+  from `/tmp`. Always verify from another dir: `cd /tmp && .../.venv/bin/origami "x"`.
 
 ## What to build next — follow `docs/CHECKPOINTS.md` (authoritative ladder)
 
