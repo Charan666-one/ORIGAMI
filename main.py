@@ -15,6 +15,7 @@ from core.executor import Executor
 from core.orchestrator import Orchestrator
 from core.planner import Planner
 from engines.memory.engine import JSONMemory
+from engines.planning.goals import GoalBook
 from engines.planning.scheduler import Scheduler
 from engines.reasoning.brain import BrainManager
 from engines.reasoning.providers.ollama import OllamaProvider
@@ -22,6 +23,7 @@ from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
 from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
+from skills.goals.skill import GoalsSkill
 from skills.memory.skill import MemorySkill
 from skills.reminder.skill import ReminderSkill
 from skills.spotify.skill import SpotifySkill
@@ -45,18 +47,21 @@ def build_brain(cloud_consent=None) -> BrainManager:
 
 def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=None,
                        desktop_adapter=None, brain=None, cloud_consent=None,
-                       memory=None, scheduler=None) -> Orchestrator:
+                       memory=None, scheduler=None, goals=None) -> Orchestrator:
     brain = brain or build_brain(cloud_consent=cloud_consent)
     memory = memory if memory is not None else JSONMemory()
     scheduler = scheduler if scheduler is not None else Scheduler()
+    goals = goals if goals is not None else GoalBook()
 
     registry = ToolRegistry()
     # Registration order = keyword-match priority. Terminal before Desktop so an
-    # explicit "run ..." wins even if the command text contains "open".
+    # explicit "run ..." wins; Goals before Reminder so "completed milestone" is a
+    # goal step, not a reminder-done.
     register_skill(registry, SpotifySkill(client=spotify_client))
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
     register_skill(registry, YouTubeSkill())
+    register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))
