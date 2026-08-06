@@ -82,9 +82,13 @@ async def test_play_still_routes_to_spotify_not_terminal():
 class FakeDesktop:
     def __init__(self):
         self.opened = None
+        self.closed = None
 
     def open_application(self, app_name):
         self.opened = app_name
+
+    def quit_application(self, app_name):
+        self.closed = app_name
 
 
 async def test_open_app_is_safe_and_runs_without_confirm():
@@ -102,3 +106,50 @@ async def test_open_app_is_safe_and_runs_without_confirm():
 async def test_open_app_declares_safe_risk():
     orch = build_orchestrator(desktop_adapter=FakeDesktop(), terminal_executor=FakeExecutor())
     assert orch.executor.registry.get("desktop.open_app").risk is Risk.SAFE
+
+
+async def test_close_app_quits_application():
+    fake = FakeDesktop()
+    orch = build_orchestrator(desktop_adapter=fake, terminal_executor=FakeExecutor())
+    result = await orch.handle(Goal(text="close Safari"))
+    assert fake.closed == "Safari"
+    assert result.success
+    assert result.steps[0].step.tool == "desktop.close_app"
+
+
+# ---------------------------------------------------------------- YouTube skill
+
+async def test_youtube_routing():
+    orch = build_orchestrator(terminal_executor=FakeExecutor())
+    plan = await orch.planner.plan(Goal(text="youtube lofi hip hop"))
+    assert plan.steps[0].tool == "youtube.play"
+    assert plan.steps[0].args.get("query") == "lofi hip hop"
+
+
+async def test_youtube_opens_top_video_keyless():
+    from skills.youtube.skill import YouTubeSkill
+
+    opened = {}
+    fake_html = 'garbage...{"videoId":"dQw4w9WgXcQ"}...more'
+
+    skill = YouTubeSkill(
+        opener=lambda url: opened.__setitem__("url", url),
+        http_get=lambda url: fake_html,
+    )
+    msg = await skill.execute("youtube.play", query="never gonna give you up")
+
+    assert opened["url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    assert "Playing on YouTube" in msg
+
+
+async def test_youtube_falls_back_to_search_when_no_video():
+    from skills.youtube.skill import YouTubeSkill
+
+    opened = {}
+    skill = YouTubeSkill(
+        opener=lambda url: opened.__setitem__("url", url),
+        http_get=lambda url: "no video ids here",
+    )
+    msg = await skill.execute("youtube.play", query="xyz")
+    assert "results?search_query=" in opened["url"]
+    assert "search" in msg.lower()

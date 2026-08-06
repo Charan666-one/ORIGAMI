@@ -17,6 +17,7 @@ from skills.registry import ToolRegistry, register_skill
 from skills.desktop.skill import DesktopSkill
 from skills.spotify.skill import SpotifySkill
 from skills.terminal.skill import TerminalSkill
+from skills.youtube.skill import YouTubeSkill
 
 
 def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=None,
@@ -27,6 +28,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, SpotifySkill(client=spotify_client))
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
+    register_skill(registry, YouTubeSkill())
 
     engine = EchoEngine()
     planner = Planner(engine, registry)

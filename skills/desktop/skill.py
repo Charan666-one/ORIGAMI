@@ -36,11 +36,18 @@ class DesktopSkill(Skill):
                 risk=Risk.SAFE,
                 keywords=("open ", "launch ", "start app"),
             ),
+            ToolSpec(
+                name="desktop.close_app",
+                description="Quit (close) an application by name.",
+                params={"app": "the application name, e.g. Safari"},
+                risk=Risk.SAFE,
+                keywords=("close ", "quit ", "exit "),
+            ),
         ]
 
     async def execute(self, tool: str, **kwargs) -> Any:
+        app = (kwargs.get("app") or "").strip()
         if tool == "desktop.open_app":
-            app = (kwargs.get("app") or "").strip()
             if not app:
                 return "Which app should I open?"
             try:
@@ -48,4 +55,12 @@ class DesktopSkill(Skill):
                 return f"Opened {app}"
             except Exception as exc:
                 return f"Couldn't open '{app}': {exc}"
+        if tool == "desktop.close_app":
+            if not app:
+                return "Which app should I close?"
+            try:
+                self.adapter.quit_application(app)
+                return f"Closed {app}"
+            except Exception as exc:
+                return f"Couldn't close '{app}': {exc}"
         raise ValueError(f"Unknown tool: {tool}")
