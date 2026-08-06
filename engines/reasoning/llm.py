@@ -32,6 +32,39 @@ class Task(str, Enum):
     CODE = "code"            # write/explain code
 
 
+class Level(str, Enum):
+    """Minimum intelligence a request needs — 'use the least that works'."""
+    L0 = "L0-deterministic"  # no AI at all (handled by non-brain skills)
+    L1 = "L1-fast"           # lightweight local model — instant, simple asks
+    L2 = "L2-standard"       # standard local reasoning — coding, long writing
+    L3 = "L3-advanced"       # cloud — only if local insufficient, with consent
+
+
+_ADVANCED_HINTS = ("in depth", "in-depth", "comprehensive", "deep research",
+                   "thorough", "use cloud", "use claude", "use gpt", "best model",
+                   "think hard", "very detailed")
+_STANDARD_HINTS = ("essay", "detailed", "long email", "research", "documentation",
+                   "planning", "step by step", "step-by-step", "analyze", "analysis",
+                   "explain in detail", "write code", "function", "script", "program")
+_FAST_HINTS = ("quick", "short", "simple", "brief", "one line", "one-line",
+               "tldr", "tl;dr", "a line")
+
+
+def classify_level(task: "Task", text: str) -> "Level":
+    """Pick the smallest capable level for a brain request (decision rule #2)."""
+    t = (text or "").lower()
+    words = len(t.split())
+    if any(h in t for h in _ADVANCED_HINTS):
+        return Level.L3
+    if task is Task.CODE:
+        return Level.L2
+    if any(h in t for h in _STANDARD_HINTS) or words > 40:
+        return Level.L2
+    if any(h in t for h in _FAST_HINTS) or words <= 20:
+        return Level.L1
+    return Level.L2  # medium-length, unclassified -> standard reasoning
+
+
 @dataclass
 class LLMResponse:
     text: str

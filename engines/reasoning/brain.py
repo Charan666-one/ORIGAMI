@@ -1,29 +1,45 @@
-"""BrainManager — chooses the best available model per task, so the Planner and
-skills never know which model (or none) answered.
+"""BrainManager — "use the minimum intelligence required."
 
-Selection rules (offline-first):
-  1. Planning / routing needs no AI  -> keyword matching, always local & free.
-  2. Reasoning/generation/etc.       -> first AVAILABLE local provider (Ollama).
-  3. If the machine is under load     -> ResourceMonitor may defer / prefer smaller.
-  4. If no local model can serve it   -> ask the user (consent) before any CLOUD
-     provider; if declined or none, fall back to Echo (honest, no fabrication).
+Every brain call is classified into a Level and routed to the smallest capable
+model, so ORIGAMI feels instant for simple asks and reserves heavy reasoning for
+when it's needed. The Planner and skills never know which model (or none) served
+a request — they only call reason/generate/summarize/code.
 
-Never automatically depends on a paid/cloud API.
+Levels:
+  L0  deterministic — no AI at all (handled by non-brain skills; never reaches here)
+  L1  fast          — lightweight local model (short/simple asks)
+  L2  standard      — standard local reasoning (coding, long writing, planning)
+  L3  advanced      — cloud, ONLY if local is insufficient AND the user consents
+
+Decision rules honored: never use AI when software can do it (L0 skills); smallest
+capable model (classify_level); prefer local; cloud requires explicit consent;
+resource-aware downgrade; Echo as the guaranteed keyless fallback.
 """
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple
 
 from core.schemas.goal import Goal
 from core.schemas.plan import Plan
 from core.schemas.tool import ToolSpec
-from engines.reasoning.llm import LLMEngine, LLMResponse, Task, keyword_match_plan
+from engines.reasoning.llm import (
+    Level, LLMEngine, LLMResponse, Task, classify_level, keyword_match_plan,
+)
 from engines.reasoning.providers.echo import EchoEngine
 from engines.reasoning.resources import ResourceMonitor
 
 # Asked before using a cloud provider: (provider_name, task) -> approved?
 CloudConsent = Callable[[str, Task], bool]
+
+
+@dataclass
+class Decision:
+    """What the manager chose for a request — useful for transparency/logging."""
+    provider: str
+    level: Level
+    reason: str = ""
 
 
 class BrainManager(LLMEngine):
@@ -32,27 +48,25 @@ class BrainManager(LLMEngine):
     def __init__(self, providers: Optional[List[LLMEngine]] = None,
                  resources: Optional[ResourceMonitor] = None,
                  cloud_consent: Optional[CloudConsent] = None) -> None:
-        # ordered by preference; Echo is always the final, always-available fallback
         self._echo = EchoEngine()
         self.providers: List[LLMEngine] = list(providers or []) + [self._echo]
         self.resources = resources or ResourceMonitor()
         self.cloud_consent = cloud_consent
+        self.last_decision: Optional[Decision] = None
 
-    # --- provider selection -----------------------------------------------------
+    # --- availability helpers ---------------------------------------------------
 
-    def select(self, task: Task) -> LLMEngine:
-        """Pick the first provider that can serve this task, honoring offline-first
-        (local before cloud) and cloud-consent. Echo is the guaranteed fallback."""
-        for provider in self.providers:
-            if provider is self._echo:
-                continue
-            if not provider.is_available():
-                continue
-            if provider.is_cloud:
-                if not self._cloud_approved(provider, task):
-                    continue
-            return provider
-        return self._echo
+    def _first_local(self) -> Optional[LLMEngine]:
+        for p in self.providers:
+            if p is not self._echo and not p.is_cloud and p.is_available():
+                return p
+        return None
+
+    def _first_cloud(self) -> Optional[LLMEngine]:
+        for p in self.providers:
+            if p.is_cloud and p.is_available():
+                return p
+        return None
 
     def _cloud_approved(self, provider: LLMEngine, task: Task) -> bool:
         if self.cloud_consent is None:
@@ -62,31 +76,63 @@ class BrainManager(LLMEngine):
         except Exception:
             return False
 
-    def can_think(self) -> bool:  # type: ignore[override]
-        """True if a real (non-echo) model is available for generation."""
-        return self.select(Task.GENERATE) is not self._echo
+    # --- the core decision: which level + provider ------------------------------
 
-    def active_model(self, task: Task = Task.REASON) -> str:
-        return self.select(task).name
+    def decide(self, task: Task, text: str) -> Tuple[LLMEngine, Level]:
+        level = classify_level(task, text)
 
-    # --- Brain Interface (delegates to the selected provider) -------------------
+        # resource-aware: under memory/CPU/battery pressure, drop to the fast tier
+        if level in (Level.L2, Level.L3) and self.resources.is_low():
+            level = Level.L1
 
-    async def complete(self, prompt: str, task: Task = Task.REASON, **kwargs) -> LLMResponse:
-        return await self.select(task).complete(prompt, task=task, **kwargs)
+        # L3 advanced -> cloud only with consent; else fall back to best local (L2)
+        if level is Level.L3:
+            cloud = self._first_cloud()
+            if cloud is not None and self._cloud_approved(cloud, task):
+                self.last_decision = Decision(cloud.name, Level.L3, "advanced + consent")
+                return cloud, Level.L3
+            level = Level.L2  # no cloud/consent — best available local
+
+        local = self._first_local()
+        if local is not None:
+            self.last_decision = Decision(local.name, level, "local")
+            return local, level
+
+        self.last_decision = Decision(self._echo.name, Level.L1, "no model available")
+        return self._echo, Level.L1
+
+    async def _run(self, task: Task, text: str, **kwargs) -> str:
+        provider, level = self.decide(task, text)
+        method = getattr(provider, task.value)  # provider.reason/generate/summarize/code
+        return await method(text, level=level, **kwargs)
+
+    # --- Brain Interface --------------------------------------------------------
 
     async def reason(self, prompt: str, **kwargs) -> str:
-        return await self.select(Task.REASON).reason(prompt, **kwargs)
+        return await self._run(Task.REASON, prompt, **kwargs)
 
     async def generate(self, instruction: str, **kwargs) -> str:
-        return await self.select(Task.GENERATE).generate(instruction, **kwargs)
+        return await self._run(Task.GENERATE, instruction, **kwargs)
 
     async def summarize(self, text: str, **kwargs) -> str:
-        return await self.select(Task.SUMMARIZE).summarize(text, **kwargs)
+        return await self._run(Task.SUMMARIZE, text, **kwargs)
 
     async def code(self, instruction: str, **kwargs) -> str:
-        return await self.select(Task.CODE).code(instruction, **kwargs)
+        return await self._run(Task.CODE, instruction, **kwargs)
 
-    # --- planning needs no model ------------------------------------------------
+    async def complete(self, prompt: str, task: Task = Task.REASON, **kwargs) -> LLMResponse:
+        provider, level = self.decide(task, prompt)
+        return await provider.complete(prompt, task=task, level=level, **kwargs)
+
+    # --- status + planning ------------------------------------------------------
+
+    def can_think(self) -> bool:
+        """True if a real (non-echo) local model is available."""
+        return self._first_local() is not None
+
+    def active_model(self, task: Task = Task.REASON) -> str:
+        local = self._first_local()
+        return local.name if local is not None else self._echo.name
 
     async def plan(self, goal: Goal, tools: List[ToolSpec]) -> Plan:
-        return keyword_match_plan(goal, tools)
+        return keyword_match_plan(goal, tools)  # L0 — routing needs no model

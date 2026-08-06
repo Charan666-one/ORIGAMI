@@ -18,18 +18,14 @@ from typing import Dict, List
 
 import requests
 
-from engines.reasoning.llm import LLMEngine, LLMResponse, Task
+from engines.reasoning.llm import Level, LLMEngine, LLMResponse, Task
 
-# Task -> ordered preference of local models (first one that's installed wins).
-# Fast *instruct* models come first (snappy, clean output on 8GB); qwen3 (a
-# reasoning model — slower, verbose) is a capable-but-heavier fallback.
-DEFAULT_MODELS: Dict[Task, List[str]] = {
-    Task.REASON: ["llama3.2:3b", "qwen2.5:3b", "gemma3:1b", "qwen3:4b", "phi4-mini"],
-    Task.GENERATE: ["llama3.2:3b", "qwen2.5:3b", "gemma3:1b", "qwen3:4b", "phi4-mini"],
-    Task.SUMMARIZE: ["llama3.2:3b", "gemma3:1b", "qwen2.5:3b", "qwen3:4b"],
-    Task.CODE: ["qwen2.5-coder:3b", "qwen2.5:3b", "qwen3:4b"],
-    Task.PLAN: ["llama3.2:3b", "qwen2.5:3b", "qwen3:4b"],
-}
+# Model tiers by intelligence level (first installed wins). Smallest/fastest for
+# L1; heavier reasoning for L2; a coder for CODE. All degrade to whatever is
+# installed, so a single model (e.g. llama3.2:3b) serves every tier.
+FAST_MODELS = ["gemma3:1b", "llama3.2:3b", "phi4-mini", "qwen2.5:3b"]
+STANDARD_MODELS = ["qwen3:4b", "qwen2.5:3b", "llama3.2:3b", "gemma3:1b"]
+CODE_MODELS = ["qwen2.5-coder:3b", "qwen3:4b", "qwen2.5:3b", "llama3.2:3b"]
 
 # Reasoning models emit long hidden "thinking" chains — very slow on 8GB. We turn
 # that off so answers come back fast.
@@ -45,10 +41,9 @@ class OllamaProvider(LLMEngine):
     name = "ollama"
     is_cloud = False
 
-    def __init__(self, host: str | None = None, models: Dict[Task, List[str]] | None = None,
-                 timeout: int = 120, keep_alive: str = "10m") -> None:
+    def __init__(self, host: str | None = None, timeout: int = 120,
+                 keep_alive: str = "10m") -> None:
         self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
-        self.models = models or DEFAULT_MODELS
         self.timeout = timeout
         self.keep_alive = keep_alive  # keep the model warm in RAM between commands
         self._installed: List[str] | None = None
@@ -69,28 +64,36 @@ class OllamaProvider(LLMEngine):
                 self._installed = []
         return self._installed
 
-    def model_for(self, task: Task) -> str | None:
-        """First preferred model for the task that is actually installed."""
+    def model_for(self, task: Task, level: Level = Level.L2) -> str | None:
+        """First installed model in the tier for this task/level (smallest that fits)."""
+        if task is Task.CODE:
+            prefs = CODE_MODELS
+        elif level is Level.L1:
+            prefs = FAST_MODELS
+        else:
+            prefs = STANDARD_MODELS
         installed = self.installed_models()
-        for preferred in self.models.get(task, []):
-            # match "qwen3:4b" against installed "qwen3:4b" or "qwen3:4b-..."
-            for got in installed:
+        for preferred in prefs:
+            for got in installed:  # match "qwen3:4b" or "qwen3:4b-..."
                 if got == preferred or got.startswith(preferred.split(":")[0] + ":"):
                     return got
         return installed[0] if installed else None
 
     async def complete(self, prompt: str, task: Task = Task.REASON, **kwargs) -> LLMResponse:
-        model = kwargs.get("model") or self.model_for(task)
+        level = kwargs.get("level", Level.L2)
+        model = kwargs.get("model") or self.model_for(task, level)
         if not model:
             raise RuntimeError("No Ollama model installed. Run e.g. `ollama pull llama3.2:3b`.")
 
+        # shorter cap for fast/simple asks -> snappier; more room for standard work
+        default_tokens = 300 if level is Level.L1 else 800
         payload: dict = {
             "model": model,
             "prompt": prompt,
             "stream": False,
             "keep_alive": self.keep_alive,
             "options": {
-                "num_predict": kwargs.get("max_tokens", 800),  # cap length -> speed
+                "num_predict": kwargs.get("max_tokens", default_tokens),
                 "temperature": kwargs.get("temperature", 0.7),
             },
         }

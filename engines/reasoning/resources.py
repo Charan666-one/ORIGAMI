@@ -27,8 +27,8 @@ class Resources:
 
 
 class ResourceMonitor:
-    def __init__(self, min_ram_gb: float = 2.0, max_cpu_percent: float = 90.0,
-                 min_battery_percent: float = 20.0) -> None:
+    def __init__(self, min_ram_gb: float = 0.8, max_cpu_percent: float = 92.0,
+                 min_battery_percent: float = 15.0) -> None:
         self.min_ram_gb = min_ram_gb
         self.max_cpu_percent = max_cpu_percent
         self.min_battery_percent = min_battery_percent
