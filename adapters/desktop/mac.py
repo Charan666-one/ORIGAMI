@@ -191,12 +191,14 @@ class MacDesktopAdapter:
     # ------------------------------------------------------------------
 
     def lock_screen(self) -> None:
-        """Lock the screen immediately."""
-        _run_shell([
-            "osascript", "-e",
-            'tell application "System Events" to keystroke "q" '
-            'using {command down, control down}'
-        ])
+        """Lock the screen by sleeping the display (needs no special permission).
+
+        Locks if 'require password after sleep/screen saver' is enabled in
+        System Settings → Lock Screen (the common default).
+        """
+        result = _run_shell(["pmset", "displaysleepnow"])
+        if result.returncode != 0:
+            raise MacDesktopError(f"Failed to lock screen: {result.stderr.strip()}")
 
     def set_volume(self, level: int) -> None:
         """
@@ -237,19 +239,17 @@ class MacDesktopAdapter:
     # Browser helpers (Safari / Chrome)
     # ------------------------------------------------------------------
 
-    def open_url(self, url: str, browser: str = "Safari") -> None:
-        """Open a URL in the specified browser."""
+    def open_url(self, url: str, browser: str = "default") -> None:
+        """Open a URL. Default: the system default browser via `open` (reliable,
+        no automation permission). A specific browser can be requested."""
         if browser.lower() == "safari":
-            _run_applescript(
-                f'tell application "Safari" to open location "{url}"'
-            )
+            _run_applescript(f'tell application "Safari" to open location "{url}"')
         elif browser.lower() in ("chrome", "google chrome"):
-            _run_applescript(
-                f'tell application "Google Chrome" to open location "{url}"'
-            )
+            _run_applescript(f'tell application "Google Chrome" to open location "{url}"')
         else:
-            # Fall back to system default
-            _run_shell(["open", url])
+            result = _run_shell(["open", url])
+            if result.returncode != 0:
+                raise MacDesktopError(f"Failed to open URL: {result.stderr.strip()}")
         logger.info("Opened URL: %s in %s.", url, browser)
 
     # ------------------------------------------------------------------
