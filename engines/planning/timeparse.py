@@ -11,7 +11,9 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
-_REL = re.compile(r"\bin\s+(\d+)\s*(minutes?|mins?|min|hours?|hrs?|hr|h)\b", re.IGNORECASE)
+_REL = re.compile(
+    r"\bin\s+(\d+)\s*(seconds?|secs?|sec|minutes?|mins?|min|hours?|hrs?|hr|h)\b",
+    re.IGNORECASE)
 _CLOCK = re.compile(r"\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?", re.IGNORECASE)
 _CLEAN = re.compile(r"\b(remind me to|remind me|reminder to|reminder|to|at|by|tomorrow|today)\b",
                     re.IGNORECASE)
@@ -25,8 +27,9 @@ def parse_when(text: str, now: Optional[float] = None) -> Optional[Tuple[float, 
     m = _REL.search(low)
     if m:
         n = int(m.group(1))
-        unit = m.group(2).lower()
-        delta = timedelta(hours=n) if unit.startswith(("h",)) else timedelta(minutes=n)
+        unit = m.group(2)[0].lower()  # s / m / h
+        delta = {"s": timedelta(seconds=n), "m": timedelta(minutes=n),
+                 "h": timedelta(hours=n)}[unit]
         return (base + delta).timestamp(), _clean_task(text, m.span())
 
     days = 1 if "tomorrow" in low else 0

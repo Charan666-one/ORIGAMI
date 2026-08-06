@@ -20,6 +20,12 @@ def test_relative_hours():
     assert abs(due - (NOON + 7200)) < 2
 
 
+def test_relative_seconds():
+    due, task = parse_when("wake me in 45 seconds", NOON)
+    assert abs(due - (NOON + 45)) < 2
+    assert "wake me" in task.lower()
+
+
 def test_at_pm_same_day():
     due, task = parse_when("call mom at 5pm", NOON)
     got = datetime.fromtimestamp(due)

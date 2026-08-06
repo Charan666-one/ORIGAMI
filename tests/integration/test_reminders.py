@@ -48,3 +48,18 @@ async def test_list_and_streak_route(tmp_path):
     orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
     plan = await orch.planner.plan(Goal(text="what are my reminders"))
     assert plan.steps[0].tool == "reminder.list"
+
+
+async def test_change_reminder_text(tmp_path):
+    sched = Scheduler(path=tmp_path / "t.json")
+    skill = ReminderSkill(scheduler=sched)
+    await skill.execute("reminder.set", text="pay rent tomorrow at 9am")
+    msg = await skill.execute("reminder.change", text="the rent one to get the job you want")
+    assert "get the job you want" in msg
+    assert sched.pending()[0].text == "get the job you want"
+
+
+async def test_change_routes(tmp_path):
+    orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
+    plan = await orch.planner.plan(Goal(text="change the rent one to get the job you want"))
+    assert plan.steps[0].tool == "reminder.change"

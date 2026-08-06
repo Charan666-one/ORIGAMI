@@ -15,7 +15,7 @@ class ScheduledTask:
     status: str = "pending"          # pending | done | missed
     created_at: float = field(default_factory=time.time)
     notified: bool = False           # fired the "it's time" notification?
-    followed_up: bool = False        # fired the "did you finish?" nudge?
+    last_nudge: float = 0.0          # last "did you finish?" nudge (repeats until done)
     important: bool = False
 
     def to_dict(self) -> dict:

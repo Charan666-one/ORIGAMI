@@ -31,6 +31,26 @@ def test_mark_done_grows_streak(tmp_path):
     assert s.streak == 1 and s.pending() == []
 
 
+def test_follow_up_repeats_until_done(tmp_path):
+    s = Scheduler(path=tmp_path / "t.json")
+    t = s.add("write essay", time.time() - FOLLOW_UP_AFTER - 5)
+    s.mark_notified(t)
+    assert len(s.needs_follow_up()) == 1     # first nudge due
+    s.mark_followed_up(t)
+    assert s.needs_follow_up() == []          # just nudged -> wait
+    t.last_nudge = time.time() - FOLLOW_UP_AFTER - 1  # interval elapsed
+    assert len(s.needs_follow_up()) == 1     # nudges again (repeats until done)
+
+
+def test_change_updates_text_keeps_time(tmp_path):
+    s = Scheduler(path=tmp_path / "t.json")
+    due = time.time() + 3600
+    s.add("pay rent", due)
+    t = s.change("rent", "get the job you want")
+    assert t is not None and t.text == "get the job you want"
+    assert abs(t.due - due) < 1              # time unchanged
+
+
 def test_persistence(tmp_path):
     p = tmp_path / "t.json"
     Scheduler(path=p).add("later", time.time() + 100)

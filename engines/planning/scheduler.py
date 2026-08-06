@@ -67,6 +67,14 @@ class Scheduler:
         self._save()
         return task
 
+    def change(self, query: str, new_text: str) -> Optional[ScheduledTask]:
+        task = self._match(query)
+        if task is None:
+            return None
+        task.text = new_text.strip()
+        self._save()
+        return task
+
     def _match(self, query: str) -> Optional[ScheduledTask]:
         q = query.lower().strip()
         for t in self._tasks:
@@ -82,15 +90,18 @@ class Scheduler:
                 if t.status == "pending" and not t.notified and t.due <= now]
 
     def needs_follow_up(self, now: Optional[float] = None) -> List[ScheduledTask]:
+        """Tasks past due, still not done — nudged repeatedly (every FOLLOW_UP_AFTER)
+        until the user marks them done. The 'timer' effectively restarts each nudge."""
         now = now or time.time()
         return [t for t in self._tasks
-                if t.status == "pending" and t.notified and not t.followed_up
-                and now >= t.due + FOLLOW_UP_AFTER]
+                if t.status == "pending" and t.notified
+                and now >= t.due + FOLLOW_UP_AFTER
+                and now - t.last_nudge >= FOLLOW_UP_AFTER]
 
     def mark_notified(self, task: ScheduledTask) -> None:
         task.notified = True
         self._save()
 
     def mark_followed_up(self, task: ScheduledTask) -> None:
-        task.followed_up = True
+        task.last_nudge = time.time()
         self._save()

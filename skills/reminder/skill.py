@@ -7,6 +7,7 @@ SAFE (local). The `origami monitor` process is what actually notifies you.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, List
 
@@ -15,6 +16,9 @@ from engines.planning.timeparse import parse_when
 from skills.base import Skill
 
 _IMPORTANT = ("important", "urgent", "critical", "must ")
+# residual (keyword "change" already stripped): "<old> [reminder|one|task] to <new>"
+_CHANGE = re.compile(r"^(.+?)\s+(?:reminder\s+|one\s+|task\s+)?to\s+(.+)$", re.IGNORECASE)
+_STRIP = re.compile(r"^(the|my)\s+|\s+(reminder|one|task)$", re.IGNORECASE)
 
 
 class ReminderSkill(Skill):
@@ -39,6 +43,13 @@ class ReminderSkill(Skill):
                 keywords=("remind me", "reminder", "remind ", "schedule "),
             ),
             ToolSpec(
+                name="reminder.change",
+                description="Change the text of an existing reminder (keeps its time).",
+                params={"text": "which reminder, and the new wording"},
+                risk=Risk.SAFE,
+                keywords=("change ", "update reminder", "edit reminder", "rename "),
+            ),
+            ToolSpec(
                 name="reminder.done",
                 description="Mark a task done (keeps your streak going).",
                 params={"text": "which task you finished"},
@@ -53,6 +64,8 @@ class ReminderSkill(Skill):
             return self._set((kwargs.get("text") or "").strip())
         if tool == "reminder.list":
             return self._list()
+        if tool == "reminder.change":
+            return self._change((kwargs.get("text") or "").strip())
         if tool == "reminder.done":
             return self._done((kwargs.get("text") or "").strip())
         raise ValueError(f"Unknown tool: {tool}")
@@ -81,6 +94,19 @@ class ReminderSkill(Skill):
             when = datetime.fromtimestamp(t.due).strftime("%a %I:%M %p").lstrip("0")
             lines.append(f"- {t.text}  ({when}){'  ⭐' if t.important else ''}")
         return head + "Pending:\n" + "\n".join(lines)
+
+    def _change(self, text: str) -> str:
+        m = _CHANGE.match(text)
+        if not m:
+            return ("To change a reminder, say e.g. "
+                    "'change the rent reminder to get the job you want'.")
+        old = _STRIP.sub("", m.group(1).strip()).strip()
+        new = m.group(2).strip()
+        task = self.scheduler.change(old, new)
+        if task is None:
+            return f"I couldn't find a pending reminder matching '{old}'."
+        when = datetime.fromtimestamp(task.due).strftime("%a %I:%M %p").lstrip("0")
+        return f"✏️ Updated: now \"{task.text}\" ({when})."
 
     def _done(self, text: str) -> str:
         task = self.scheduler.mark_done(text)
