@@ -15,6 +15,7 @@ from core.planner import Planner
 from engines.reasoning.providers.echo import EchoEngine
 from skills.registry import ToolRegistry, register_skill
 from skills.desktop.skill import DesktopSkill
+from skills.email.skill import EmailSkill
 from skills.spotify.skill import SpotifySkill
 from skills.terminal.skill import TerminalSkill
 from skills.youtube.skill import YouTubeSkill
@@ -29,6 +30,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
     register_skill(registry, YouTubeSkill())
+    register_skill(registry, EmailSkill())
 
     engine = EchoEngine()
     planner = Planner(engine, registry)

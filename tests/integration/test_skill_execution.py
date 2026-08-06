@@ -153,3 +153,34 @@ async def test_youtube_falls_back_to_search_when_no_video():
     msg = await skill.execute("youtube.play", query="xyz")
     assert "results?search_query=" in opened["url"]
     assert "search" in msg.lower()
+
+
+# ------------------------------------------------------------------ email skill
+
+async def test_email_routing():
+    orch = build_orchestrator(terminal_executor=FakeExecutor())
+    plan = await orch.planner.plan(
+        Goal(text="prepare a draft mail to psrisaicharan5@gmail.com to study hard")
+    )
+    assert plan.steps[0].tool == "email.draft"
+
+
+async def test_email_draft_builds_mailto_with_recipient_and_body():
+    from skills.email.skill import EmailSkill
+
+    opened = {}
+    skill = EmailSkill(opener=lambda url: opened.__setitem__("url", url))
+    msg = await skill.execute("email.draft", text="to psrisaicharan5@gmail.com to study hard")
+
+    url = opened["url"]
+    assert url.startswith("mailto:psrisaicharan5@gmail.com?")
+    assert "study%20hard" in url          # body is URL-encoded
+    assert "psrisaicharan5@gmail.com" in msg
+
+
+async def test_email_draft_without_address_is_graceful():
+    from skills.email.skill import EmailSkill
+
+    skill = EmailSkill(opener=lambda url: None)
+    msg = await skill.execute("email.draft", text="just some words no address")
+    assert "couldn't find" in msg.lower()
