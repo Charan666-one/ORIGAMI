@@ -90,13 +90,15 @@ The docs sometimes use clean conceptual names; build in the existing homes:
   except memory (C4).
 - **Scoreboard: `docs/CHECKPOINTS.md`** — one checkpoint at a time, tag when its
   boxes are all checked. Next: **C2 (real actions — terminal + desktop skills)**.
-- ⚠️ If the `origami` script raises `ModuleNotFoundError: interfaces`: the macOS
-  homebrew-python venv breaks two ways — (1) `brew upgrade` invalidates a
-  *symlinked* venv, (2) setuptools' default editable **MAPPING finder** is
-  *intermittently* unreliable here (works then fails seconds later). **Durable fix
-  (both):** `make venv` — rebuilds with `--copies` (survives brew upgrades) and
-  installs editable in **compat mode** (plain `.pth`, no finder). Verified 18/18
-  from `/tmp`. Always verify from another dir: `cd /tmp && .../.venv/bin/origami "x"`.
+- ⚠️ **Install is NON-editable on purpose.** This machine's homebrew python has an
+  unreliable `site` that intermittently fails to process `.pth` files, so *both*
+  setuptools editable modes (MAPPING finder and compat `.pth`) break the `origami`
+  command with `ModuleNotFoundError: interfaces` — it works for a while, then fails
+  in a fresh shell. Fix: install non-editable (packages copied into site-packages,
+  found by normal import, no `.pth`). Verified 12/12 from `/tmp`.
+  - **After editing any source file, run `make reinstall`** (non-editable installs
+    don't see edits live). Full rebuild if ever broken: `make venv`.
+  - Always verify from another dir: `cd /tmp && .../.venv/bin/origami "x"`.
 
 ## What to build next — follow `docs/CHECKPOINTS.md` (authoritative ladder)
 
