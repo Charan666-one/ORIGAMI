@@ -22,8 +22,9 @@ _NEEDS_MODEL = (
 
 
 class AssistantSkill(Skill):
-    def __init__(self, brain: Any) -> None:
+    def __init__(self, brain: Any, memory: Any = None) -> None:
         self.brain = brain
+        self.memory = memory  # optional: enriches answers with what ORIGAMI knows
 
     def specs(self) -> List[ToolSpec]:
         return [
@@ -56,12 +57,22 @@ class AssistantSkill(Skill):
         if not self.brain.can_think():
             return _NEEDS_MODEL
         if tool == "assistant.write":
-            return await self.brain.generate(_arg(kwargs, "prompt"))
+            return await self.brain.generate(self._with_context(_arg(kwargs, "prompt")))
         if tool == "assistant.summarize":
             return await self.brain.summarize(_arg(kwargs, "text"))
         if tool == "assistant.ask":
-            return await self.brain.reason(_arg(kwargs, "prompt"))
+            return await self.brain.reason(self._with_context(_arg(kwargs, "prompt")))
         raise ValueError(f"Unknown tool: {tool}")
+
+    def _with_context(self, prompt: str) -> str:
+        """Prepend relevant stored memories so answers reflect what ORIGAMI knows."""
+        if self.memory is None:
+            return prompt
+        context = self.memory.context_for(prompt)
+        if not context:
+            return prompt
+        return (f"Here is what you know about the user and their work:\n{context}\n\n"
+                f"Using that context when relevant, respond to:\n{prompt}")
 
 
 def _arg(kwargs: dict, key: str) -> str:

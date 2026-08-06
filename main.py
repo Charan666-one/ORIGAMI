@@ -14,12 +14,14 @@ import os
 from core.executor import Executor
 from core.orchestrator import Orchestrator
 from core.planner import Planner
+from engines.memory.engine import JSONMemory
 from engines.reasoning.brain import BrainManager
 from engines.reasoning.providers.ollama import OllamaProvider
 from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
 from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
+from skills.memory.skill import MemorySkill
 from skills.spotify.skill import SpotifySkill
 from skills.terminal.skill import TerminalSkill
 from skills.youtube.skill import YouTubeSkill
@@ -40,8 +42,10 @@ def build_brain(cloud_consent=None) -> BrainManager:
 
 
 def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=None,
-                       desktop_adapter=None, brain=None, cloud_consent=None) -> Orchestrator:
+                       desktop_adapter=None, brain=None, cloud_consent=None,
+                       memory=None) -> Orchestrator:
     brain = brain or build_brain(cloud_consent=cloud_consent)
+    memory = memory if memory is not None else JSONMemory()
 
     registry = ToolRegistry()
     # Registration order = keyword-match priority. Terminal before Desktop so an
@@ -50,8 +54,9 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
     register_skill(registry, YouTubeSkill())
+    register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))
-    register_skill(registry, AssistantSkill(brain=brain))
+    register_skill(registry, AssistantSkill(brain=brain, memory=memory))
 
     planner = Planner(brain, registry)
     executor = Executor(registry, confirmer=confirmer)
