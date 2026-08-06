@@ -14,7 +14,7 @@ Pull the models you want (only what you'll use):
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from typing import List
 
 import requests
 

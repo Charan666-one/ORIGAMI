@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
 
+from core.persist import atomic_write_json, read_text
 from core.schemas.memory import MemoryRecord
 
 DEFAULT_EXPIRE_DAYS = 12  # ordinary memories fade; important ones never do
@@ -63,17 +64,17 @@ class JSONMemory(MemoryEngine):
 
     @staticmethod
     def _load(path: Path) -> List[MemoryRecord]:
-        if not path.exists():
+        raw = read_text(path)
+        if not raw:
             return []
         try:
-            return [MemoryRecord.from_dict(d) for d in json.loads(path.read_text())]
+            return [MemoryRecord.from_dict(d) for d in json.loads(raw)]
         except Exception:
             return []
 
     @staticmethod
     def _save(path: Path, records: List[MemoryRecord]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps([r.to_dict() for r in records], indent=2))
+        atomic_write_json(path, [r.to_dict() for r in records])
 
     def _prune(self) -> None:
         """Drop ordinary memories older than expire_days (important never expire)."""

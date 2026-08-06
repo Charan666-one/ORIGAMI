@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+from core.persist import atomic_write_json, read_text
 from core.schemas.task import ScheduledTask
 
 FOLLOW_UP_AFTER = 10 * 60  # seconds after due to ask "did you finish?"
@@ -26,19 +27,19 @@ class Scheduler:
     # --- persistence ------------------------------------------------------------
 
     def _load(self) -> None:
-        if not self.path.exists():
+        raw = read_text(self.path)
+        if not raw:
             return
         try:
-            data = json.loads(self.path.read_text())
+            data = json.loads(raw)
             self._tasks = [ScheduledTask.from_dict(t) for t in data.get("tasks", [])]
             self._streak = data.get("streak", 0)
         except Exception:
             self._tasks, self._streak = [], 0
 
     def _save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(
-            {"tasks": [t.to_dict() for t in self._tasks], "streak": self._streak}, indent=2))
+        atomic_write_json(self.path,
+                          {"tasks": [t.to_dict() for t in self._tasks], "streak": self._streak})
 
     # --- commands ---------------------------------------------------------------
 

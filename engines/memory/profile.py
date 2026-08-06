@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from core.persist import atomic_write_text, read_text
+
 
 class UserProfile:
     def __init__(self, path: Optional[Path] = None) -> None:
@@ -20,11 +22,7 @@ class UserProfile:
         return self.path.exists()
 
     def load(self) -> str:
-        try:
-            return self.path.read_text().strip() if self.path.exists() else ""
-        except Exception:
-            return ""
+        return read_text(self.path).strip()
 
     def save(self, text: str) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(text.strip() + "\n")
+        atomic_write_text(self.path, text.strip() + "\n")

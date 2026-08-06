@@ -63,3 +63,10 @@ async def test_change_routes(tmp_path):
     orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
     plan = await orch.planner.plan(Goal(text="change the rent one to get the job you want"))
     assert plan.steps[0].tool == "reminder.change"
+
+
+async def test_change_routes_even_with_word_reminder(tmp_path):
+    # regression: "change ... reminder ..." must not route to reminder.set
+    orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
+    plan = await orch.planner.plan(Goal(text="change the gym reminder to go for a run"))
+    assert plan.steps[0].tool == "reminder.change"

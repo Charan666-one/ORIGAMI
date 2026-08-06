@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+from core.persist import atomic_write_json, read_text
 from core.schemas.goal_state import GoalState, Milestone
 
 _STOP = {"the", "a", "an", "to", "of", "and", "my", "me", "for", "get", "become", "in"}
@@ -21,16 +22,16 @@ class GoalBook:
         self._goals: List[GoalState] = self._load()
 
     def _load(self) -> List[GoalState]:
-        if not self.path.exists():
+        raw = read_text(self.path)
+        if not raw:
             return []
         try:
-            return [GoalState.from_dict(g) for g in json.loads(self.path.read_text())]
+            return [GoalState.from_dict(g) for g in json.loads(raw)]
         except Exception:
             return []
 
     def _save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps([g.to_dict() for g in self._goals], indent=2))
+        atomic_write_json(self.path, [g.to_dict() for g in self._goals])
 
     def add(self, title: str, milestone_texts: List[str]) -> GoalState:
         goal = GoalState(title=title.strip(),

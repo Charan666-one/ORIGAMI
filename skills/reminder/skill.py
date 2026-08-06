@@ -36,18 +36,19 @@ class ReminderSkill(Skill):
                           "my tasks", "my schedule", "what's my streak", "my streak"),
             ),
             ToolSpec(
+                name="reminder.change",
+                description="Change the text of an existing reminder (keeps its time).",
+                params={"text": "which reminder, and the new wording"},
+                risk=Risk.SAFE,
+                # before set: "change X reminder to Y" contains "reminder" (a set kw)
+                keywords=("change ", "update reminder", "edit reminder", "rename "),
+            ),
+            ToolSpec(
                 name="reminder.set",
                 description="Schedule a reminder for a specific time.",
                 params={"text": "what to be reminded of, and when"},
                 risk=Risk.SAFE,
                 keywords=("remind me", "reminder", "remind ", "schedule "),
-            ),
-            ToolSpec(
-                name="reminder.change",
-                description="Change the text of an existing reminder (keeps its time).",
-                params={"text": "which reminder, and the new wording"},
-                risk=Risk.SAFE,
-                keywords=("change ", "update reminder", "edit reminder", "rename "),
             ),
             ToolSpec(
                 name="reminder.done",

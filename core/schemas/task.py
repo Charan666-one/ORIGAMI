@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 
 @dataclass
@@ -23,4 +23,4 @@ class ScheduledTask:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ScheduledTask":
-        return cls(**{k: d[k] for k in cls.__dataclass_fields__ if k in d})
+        return cls(**{f.name: d[f.name] for f in fields(cls) if f.name in d})
