@@ -28,6 +28,7 @@ from skills.goals.skill import GoalsSkill
 from skills.memory.skill import MemorySkill
 from skills.profile.skill import ProfileSkill
 from skills.reminder.skill import ReminderSkill
+from skills.research.skill import ResearchSkill
 from skills.spotify.skill import SpotifySkill
 from skills.terminal.skill import TerminalSkill
 from skills.youtube.skill import YouTubeSkill
@@ -69,6 +70,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))
     register_skill(registry, ProfileSkill(profile=profile))
+    register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))
     register_skill(registry, AssistantSkill(brain=brain, memory=memory))
