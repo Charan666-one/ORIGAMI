@@ -15,6 +15,7 @@ from core.executor import Executor
 from core.orchestrator import Orchestrator
 from core.planner import Planner
 from engines.memory.engine import JSONMemory
+from engines.memory.profile import UserProfile
 from engines.planning.goals import GoalBook
 from engines.planning.scheduler import Scheduler
 from engines.reasoning.brain import BrainManager
@@ -25,16 +26,18 @@ from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
 from skills.goals.skill import GoalsSkill
 from skills.memory.skill import MemorySkill
+from skills.profile.skill import ProfileSkill
 from skills.reminder.skill import ReminderSkill
 from skills.spotify.skill import SpotifySkill
 from skills.terminal.skill import TerminalSkill
 from skills.youtube.skill import YouTubeSkill
 
 
-def build_brain(cloud_consent=None) -> BrainManager:
+def build_brain(cloud_consent=None, system_context="") -> BrainManager:
     """Assemble the brain: local Ollama first (offline-first), optional cloud, then
     Echo as the guaranteed keyless fallback. Providers that aren't available (server
-    down, no key) are simply skipped by the manager."""
+    down, no key) are simply skipped by the manager. `system_context` (the user
+    profile) is injected into every reasoning/generation call."""
     providers = [OllamaProvider()]
 
     cloud_name = os.getenv("ORIGAMI_CLOUD")  # e.g. "groq" — only if the user opts in
@@ -42,13 +45,15 @@ def build_brain(cloud_consent=None) -> BrainManager:
         from engines.reasoning.providers.cloud import CloudProvider
         providers.append(CloudProvider(preset=cloud_name))
 
-    return BrainManager(providers=providers, cloud_consent=cloud_consent)
+    return BrainManager(providers=providers, cloud_consent=cloud_consent,
+                        system_context=system_context)
 
 
 def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=None,
                        desktop_adapter=None, brain=None, cloud_consent=None,
                        memory=None, scheduler=None, goals=None) -> Orchestrator:
-    brain = brain or build_brain(cloud_consent=cloud_consent)
+    profile = UserProfile()
+    brain = brain or build_brain(cloud_consent=cloud_consent, system_context=profile.load())
     memory = memory if memory is not None else JSONMemory()
     scheduler = scheduler if scheduler is not None else Scheduler()
     goals = goals if goals is not None else GoalBook()
@@ -63,6 +68,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, YouTubeSkill())
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))
+    register_skill(registry, ProfileSkill(profile=profile))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))
     register_skill(registry, AssistantSkill(brain=brain, memory=memory))

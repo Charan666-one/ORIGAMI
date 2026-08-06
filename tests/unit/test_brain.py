@@ -109,6 +109,23 @@ async def test_generate_delegates_to_provider():
     assert "FAKE(local)" in out
 
 
+async def test_system_context_injected_into_reasoning():
+    seen = {}
+
+    class Capture(LLMEngine):
+        name = "cap"
+
+        async def complete(self, prompt, task=Task.REASON, **kwargs) -> LLMResponse:
+            seen["prompt"] = prompt
+            return LLMResponse(text="ok")
+
+    bm = BrainManager(providers=[Capture()], resources=NormalResources(),
+                      system_context="THE USER IS CHARAN, a CS student.")
+    await bm.reason("what should I focus on")
+    assert "CHARAN" in seen["prompt"]
+    assert "what should I focus on" in seen["prompt"]
+
+
 def test_resource_monitor_snapshot_has_fields():
     snap = ResourceMonitor().snapshot()
     for field in ("ram_available_gb", "cpu_percent", "battery_percent", "temperature_c"):

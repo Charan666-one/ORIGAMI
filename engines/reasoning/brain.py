@@ -47,11 +47,13 @@ class BrainManager(LLMEngine):
 
     def __init__(self, providers: Optional[List[LLMEngine]] = None,
                  resources: Optional[ResourceMonitor] = None,
-                 cloud_consent: Optional[CloudConsent] = None) -> None:
+                 cloud_consent: Optional[CloudConsent] = None,
+                 system_context: str = "") -> None:
         self._echo = EchoEngine()
         self.providers: List[LLMEngine] = list(providers or []) + [self._echo]
         self.resources = resources or ResourceMonitor()
         self.cloud_consent = cloud_consent
+        self.system_context = system_context  # persistent 'who the user is' context
         self.last_decision: Optional[Decision] = None
 
     # --- availability helpers ---------------------------------------------------
@@ -102,9 +104,15 @@ class BrainManager(LLMEngine):
         return self._echo, Level.L1
 
     async def _run(self, task: Task, text: str, **kwargs) -> str:
-        provider, level = self.decide(task, text)
+        provider, level = self.decide(task, text)  # classify on the raw request
+        prompt = text
+        # inject the persistent user context for personal reasoning/writing (not
+        # for summarize/code, which act on given content)
+        if self.system_context and task in (Task.REASON, Task.GENERATE):
+            prompt = (f"{self.system_context}\n\n---\n"
+                      f"Given the above about the user, respond to their request:\n{text}")
         method = getattr(provider, task.value)  # provider.reason/generate/summarize/code
-        return await method(text, level=level, **kwargs)
+        return await method(prompt, level=level, **kwargs)
 
     # --- Brain Interface --------------------------------------------------------
 
