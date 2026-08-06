@@ -23,9 +23,9 @@ from engines.reasoning.llm import Level, LLMEngine, LLMResponse, Task
 # Model tiers by intelligence level (first installed wins). Smallest/fastest for
 # L1; heavier reasoning for L2; a coder for CODE. All degrade to whatever is
 # installed, so a single model (e.g. llama3.2:3b) serves every tier.
-FAST_MODELS = ["gemma3:1b", "llama3.2:3b", "phi4-mini", "qwen2.5:3b"]
-STANDARD_MODELS = ["qwen3:4b", "qwen2.5:3b", "llama3.2:3b", "gemma3:1b"]
-CODE_MODELS = ["qwen2.5-coder:3b", "qwen3:4b", "qwen2.5:3b", "llama3.2:3b"]
+FAST_MODELS = ["llama3.2:1b", "gemma3:1b", "qwen2.5:1.5b", "llama3.2:3b", "phi4-mini"]
+STANDARD_MODELS = ["qwen2.5:3b", "llama3.2:3b", "qwen3:4b", "gemma3:1b", "llama3.2:1b"]
+CODE_MODELS = ["qwen2.5-coder:3b", "qwen2.5:3b", "qwen3:4b", "llama3.2:3b"]
 
 # Reasoning models emit long hidden "thinking" chains — very slow on 8GB. We turn
 # that off so answers come back fast.
@@ -86,7 +86,7 @@ class OllamaProvider(LLMEngine):
             raise RuntimeError("No Ollama model installed. Run e.g. `ollama pull llama3.2:3b`.")
 
         # shorter cap for fast/simple asks -> snappier; more room for standard work
-        default_tokens = 300 if level is Level.L1 else 800
+        default_tokens = 256 if level is Level.L1 else 700
         payload: dict = {
             "model": model,
             "prompt": prompt,
@@ -95,6 +95,8 @@ class OllamaProvider(LLMEngine):
             "options": {
                 "num_predict": kwargs.get("max_tokens", default_tokens),
                 "temperature": kwargs.get("temperature", 0.7),
+                # smaller context window = less RAM + faster on an 8GB machine
+                "num_ctx": kwargs.get("num_ctx", 2048),
             },
         }
         if _is_thinking_model(model):

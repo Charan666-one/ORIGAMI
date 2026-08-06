@@ -8,11 +8,32 @@ name). SAFE tools like playing music never prompt.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import sys
+import time
 
 from core.schemas.goal import Goal
 from core.schemas.plan import Step
 from core.schemas.tool import Risk, ToolSpec
+
+
+async def _with_spinner(coro):
+    """Show an animated 'working' indicator on stderr while a command runs, so slow
+    brain calls never look frozen. Cleared before the result prints."""
+    async def spin():
+        start = time.monotonic()
+        for frame in itertools.cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"):
+            sys.stderr.write(f"\r{frame} working… {time.monotonic() - start:4.1f}s")
+            sys.stderr.flush()
+            await asyncio.sleep(0.1)
+
+    spinner = asyncio.ensure_future(spin())
+    try:
+        return await coro
+    finally:
+        spinner.cancel()
+        sys.stderr.write("\r\033[K")  # clear the spinner line
+        sys.stderr.flush()
 
 
 def _load_env() -> None:
@@ -26,6 +47,8 @@ def _load_env() -> None:
 
 
 async def _cli_confirmer(spec: ToolSpec, step: Step) -> bool:
+    sys.stderr.write("\r\033[K")  # clear any spinner line before prompting
+    sys.stderr.flush()
     if spec.risk is Risk.CRITICAL:
         print(f"🔴 CRITICAL: {spec.name} — {spec.description}")
         answer = input(f"   Type the tool name '{spec.name}' to approve: ").strip()
@@ -50,7 +73,7 @@ def main() -> int:
     from main import build_orchestrator  # composition root (repo-root main.py)
 
     orchestrator = build_orchestrator(confirmer=_cli_confirmer, cloud_consent=_cloud_consent)
-    result = asyncio.run(orchestrator.handle(Goal(text=text, source="cli")))
+    result = asyncio.run(_with_spinner(orchestrator.handle(Goal(text=text, source="cli"))))
     print(result.summary)
     return 0 if result.success or not result.steps else 1
 
