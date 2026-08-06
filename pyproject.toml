@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2",
     "pyyaml",
     "python-dotenv",
+    "psutil",
 ]
 
 [project.optional-dependencies]

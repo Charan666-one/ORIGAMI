@@ -185,3 +185,67 @@ async def test_email_draft_without_address_is_graceful():
     skill = EmailSkill(opener=lambda url: None)
     msg = await skill.execute("email.draft", text="just some words no address")
     assert "couldn't find" in msg.lower()
+
+
+# ------------------------------------------------------- thinking (Brain) skills
+
+from engines.reasoning.llm import LLMEngine, LLMResponse, Task  # noqa: E402
+
+
+class FakeBrain(LLMEngine):
+    """A brain that 'thinks' with predictable output (subclasses the interface so
+    it also provides keyword `plan()` for routing tests)."""
+
+    name = "fakebrain"
+
+    def __init__(self, thinks=True):
+        self._thinks = thinks
+
+    def can_think(self) -> bool:
+        return self._thinks
+
+    async def complete(self, prompt, task=Task.REASON, **kwargs) -> LLMResponse:
+        return LLMResponse(text="ok", model="fake")
+
+    async def generate(self, instruction, **kwargs) -> str:
+        return f"Subject: Re: your request\nHi,\n\nHere is {instruction}.\n\nThanks."
+
+    async def reason(self, prompt, **kwargs) -> str:
+        return f"ANSWER about {prompt}"
+
+
+async def test_assistant_write_uses_the_brain():
+    from skills.assistant.skill import AssistantSkill
+    out = await AssistantSkill(FakeBrain(thinks=True)).execute(
+        "assistant.write", prompt="an essay about origami")
+    assert "an essay about origami" in out
+
+
+async def test_assistant_points_to_ollama_when_no_model():
+    from skills.assistant.skill import AssistantSkill
+    out = await AssistantSkill(FakeBrain(thinks=False)).execute("assistant.ask", prompt="hi")
+    assert "ollama" in out.lower()
+
+
+async def test_write_routes_to_assistant():
+    orch = build_orchestrator(terminal_executor=FakeExecutor(), brain=FakeBrain())
+    plan = await orch.planner.plan(Goal(text="write a haiku about the sea"))
+    assert plan.steps[0].tool == "assistant.write"
+
+
+async def test_email_body_is_composed_by_brain_when_available():
+    from skills.email.skill import EmailSkill
+    opened = {}
+    skill = EmailSkill(opener=lambda url: opened.__setitem__("url", url), brain=FakeBrain(True))
+    await skill.execute("email.draft", text="to prof@uni.edu an essay about my project")
+    url = opened["url"]
+    assert "su=Re%3A%20your%20request" in url        # subject from the model
+    assert "Here%20is" in url                          # body composed by the model
+
+
+async def test_email_falls_back_to_literal_without_brain():
+    from skills.email.skill import EmailSkill
+    opened = {}
+    skill = EmailSkill(opener=lambda url: opened.__setitem__("url", url))  # no brain
+    await skill.execute("email.draft", text="to prof@uni.edu study hard")
+    assert "study%20hard" in opened["url"]

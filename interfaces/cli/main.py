@@ -34,6 +34,12 @@ async def _cli_confirmer(spec: ToolSpec, step: Step) -> bool:
     return input("   Proceed? [y/N]: ").strip().lower() in ("y", "yes")
 
 
+def _cloud_consent(provider_name: str, task) -> bool:
+    """Asked before ORIGAMI uses any cloud model — it never auto-depends on one."""
+    print(f"☁️  The local model can't handle this. Use cloud provider '{provider_name}'?")
+    return input("   This sends your request off-device. Proceed? [y/N]: ").strip().lower() in ("y", "yes")
+
+
 def main() -> int:
     _load_env()
     text = " ".join(sys.argv[1:]).strip()
@@ -43,7 +49,7 @@ def main() -> int:
 
     from main import build_orchestrator  # composition root (repo-root main.py)
 
-    orchestrator = build_orchestrator(confirmer=_cli_confirmer)
+    orchestrator = build_orchestrator(confirmer=_cli_confirmer, cloud_consent=_cloud_consent)
     result = asyncio.run(orchestrator.handle(Goal(text=text, source="cli")))
     print(result.summary)
     return 0 if result.success or not result.steps else 1
