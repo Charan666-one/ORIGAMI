@@ -81,14 +81,52 @@ async def test_play_still_routes_to_spotify_not_terminal():
 
 class FakeDesktop:
     def __init__(self):
-        self.opened = None
-        self.closed = None
+        self.opened = self.closed = self.url = self.volume = None
+        self.muted = self.locked = False
 
     def open_application(self, app_name):
         self.opened = app_name
 
     def quit_application(self, app_name):
         self.closed = app_name
+
+    def open_url(self, url, browser="Safari"):
+        self.url = url
+
+    def set_volume(self, level):
+        self.volume = level
+
+    def mute(self):
+        self.muted = True
+
+    def unmute(self):
+        self.muted = False
+
+    def take_screenshot(self, output_path=None, window=False):
+        return output_path or "/tmp/shot.png"
+
+    def lock_screen(self):
+        self.locked = True
+
+    def get_clipboard(self):
+        return "clipboard contents"
+
+
+async def test_desktop_mac_controls():
+    from skills.desktop.skill import DesktopSkill
+    fake = FakeDesktop()
+    skill = DesktopSkill(adapter=fake)
+
+    assert "40" in await skill.execute("desktop.set_volume", level="to 40")
+    assert fake.volume == 40
+    await skill.execute("desktop.mute")
+    assert fake.muted is True
+    await skill.execute("desktop.lock")
+    assert fake.locked is True
+    assert "png" in (await skill.execute("desktop.screenshot")).lower()
+    assert "clipboard" in await skill.execute("desktop.clipboard")
+    await skill.execute("desktop.open_url", url="reddit.com")
+    assert fake.url == "https://reddit.com"  # scheme added
 
 
 async def test_open_app_is_safe_and_runs_without_confirm():

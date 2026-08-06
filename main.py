@@ -22,6 +22,7 @@ from engines.reasoning.brain import BrainManager
 from engines.reasoning.providers.ollama import OllamaProvider
 from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
+from skills.calendar.skill import CalendarSkill
 from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
 from skills.goals.skill import GoalsSkill
@@ -60,15 +61,18 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     goals = goals if goals is not None else GoalBook()
 
     registry = ToolRegistry()
-    # Registration order = keyword-match priority. Terminal before Desktop so an
-    # explicit "run ..." wins; Goals before Reminder so "completed milestone" is a
-    # goal step, not a reminder-done.
+    # Registration order = keyword-match priority (first keyword hit wins). Ordering
+    # constraints: Goals before Reminder ("completed milestone" = goal step);
+    # Reminder before Terminal ("remind me to run ..." must not hit terminal's
+    # "run "); Terminal before Desktop ("run open X" = terminal); Assistant last
+    # (conversational catch-all fallback).
     register_skill(registry, SpotifySkill(client=spotify_client))
+    register_skill(registry, GoalsSkill(goals=goals, brain=brain))
+    register_skill(registry, ReminderSkill(scheduler=scheduler))
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
     register_skill(registry, YouTubeSkill())
-    register_skill(registry, GoalsSkill(goals=goals, brain=brain))
-    register_skill(registry, ReminderSkill(scheduler=scheduler))
+    register_skill(registry, CalendarSkill())
     register_skill(registry, ProfileSkill(profile=profile))
     register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))

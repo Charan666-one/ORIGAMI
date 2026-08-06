@@ -70,3 +70,25 @@ async def test_change_routes_even_with_word_reminder(tmp_path):
     orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
     plan = await orch.planner.plan(Goal(text="change the gym reminder to go for a run"))
     assert plan.steps[0].tool == "reminder.change"
+
+
+async def test_cancel_reminder(tmp_path):
+    sched = Scheduler(path=tmp_path / "t.json")
+    skill = ReminderSkill(scheduler=sched)
+    await skill.execute("reminder.set", text="pay the bills in 2 hours")
+    msg = await skill.execute("reminder.cancel", text="bills")
+    assert "cancelled" in msg.lower()
+    assert sched.pending() == []
+
+
+async def test_remind_me_to_run_is_a_reminder_not_terminal(tmp_path):
+    # regression: the word "run" must not steal a reminder for terminal
+    orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
+    plan = await orch.planner.plan(Goal(text="remind me to run at 6am"))
+    assert plan.steps[0].tool == "reminder.set"
+
+
+async def test_cancel_routes(tmp_path):
+    orch = build_orchestrator(scheduler=Scheduler(path=tmp_path / "t.json"))
+    plan = await orch.planner.plan(Goal(text="cancel the gym reminder"))
+    assert plan.steps[0].tool == "reminder.cancel"

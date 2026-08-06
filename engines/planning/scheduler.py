@@ -76,10 +76,31 @@ class Scheduler:
         self._save()
         return task
 
+    def cancel(self, query: str) -> Optional[ScheduledTask]:
+        task = self._match(query)
+        if task is None:
+            return None
+        task.status = "cancelled"
+        self._save()
+        return task
+
     def _match(self, query: str) -> Optional[ScheduledTask]:
+        """Best pending match: exact id, then most word-overlap, then substring."""
         q = query.lower().strip()
-        for t in self._tasks:
-            if t.status == "pending" and (q in t.text.lower() or t.id == q):
+        pending = [t for t in self._tasks if t.status == "pending"]
+        for t in pending:
+            if t.id == q:
+                return t
+        qwords = {w for w in q.split() if len(w) > 1}
+        best, best_score = None, 0
+        for t in pending:
+            score = len(qwords & set(t.text.lower().split()))
+            if score > best_score:
+                best, best_score = t, score
+        if best is not None:
+            return best
+        for t in pending:  # substring fallback
+            if q and q in t.text.lower():
                 return t
         return None
 

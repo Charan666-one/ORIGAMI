@@ -44,6 +44,15 @@ class ReminderSkill(Skill):
                 keywords=("change ", "update reminder", "edit reminder", "rename "),
             ),
             ToolSpec(
+                name="reminder.cancel",
+                description="Cancel/remove a pending reminder.",
+                params={"text": "which reminder to cancel"},
+                risk=Risk.SAFE,
+                # before set: "cancel the gym reminder" contains "reminder" (a set kw)
+                keywords=("cancel ", "delete reminder", "remove reminder",
+                          "forget the reminder", "drop the reminder"),
+            ),
+            ToolSpec(
                 name="reminder.set",
                 description="Schedule a reminder for a specific time.",
                 params={"text": "what to be reminded of, and when"},
@@ -67,9 +76,17 @@ class ReminderSkill(Skill):
             return self._list()
         if tool == "reminder.change":
             return self._change((kwargs.get("text") or "").strip())
+        if tool == "reminder.cancel":
+            return self._cancel((kwargs.get("text") or "").strip())
         if tool == "reminder.done":
             return self._done((kwargs.get("text") or "").strip())
         raise ValueError(f"Unknown tool: {tool}")
+
+    def _cancel(self, text: str) -> str:
+        task = self.scheduler.cancel(text)
+        if task is None:
+            return f"I couldn't find a pending reminder matching '{text}'."
+        return f"🗑️ Cancelled: \"{task.text}\"."
 
     def _set(self, text: str) -> str:
         parsed = parse_when(text)
