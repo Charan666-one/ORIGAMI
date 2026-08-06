@@ -165,7 +165,7 @@ async def test_email_routing():
     assert plan.steps[0].tool == "email.draft"
 
 
-async def test_email_draft_builds_mailto_with_recipient_and_body():
+async def test_email_draft_builds_gmail_compose_with_recipient_and_body():
     from skills.email.skill import EmailSkill
 
     opened = {}
@@ -173,8 +173,9 @@ async def test_email_draft_builds_mailto_with_recipient_and_body():
     msg = await skill.execute("email.draft", text="to psrisaicharan5@gmail.com to study hard")
 
     url = opened["url"]
-    assert url.startswith("mailto:psrisaicharan5@gmail.com?")
-    assert "study%20hard" in url          # body is URL-encoded
+    assert url.startswith("https://mail.google.com/mail/?view=cm")
+    assert "psrisaicharan5%40gmail.com" in url   # recipient, URL-encoded
+    assert "study%20hard" in url                 # body, URL-encoded
     assert "psrisaicharan5@gmail.com" in msg
 
 

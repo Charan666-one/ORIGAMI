@@ -1,9 +1,10 @@
 """EmailSkill — draft an email, keyless (no Gmail API / OAuth).
 
 `email.draft` parses a recipient + message out of plain English and opens a
-pre-filled compose window in the default mail app via a `mailto:` link. The user
-reviews and sends it themselves — that is the preview→approve contract, with the
-final send staying in the user's hands. SAFE (nothing is sent autonomously).
+pre-filled **Gmail compose window in the browser** (reliable for Gmail users; no
+default-mail-app setup needed). The user reviews and sends it themselves — that is
+the preview→approve contract, with the final send staying in the user's hands.
+SAFE (nothing is sent autonomously).
 
 A later upgrade can add `email.send` (CONFIRM) that sends programmatically via the
 Gmail API — but that needs OAuth, so the keyless draft path comes first.
@@ -58,13 +59,16 @@ class EmailSkill(Skill):
         body = after or "(write your message here)"
         subject = "Message" if not after else (body[:60] + ("…" if len(body) > 60 else ""))
 
+        # Gmail web compose — opens a draft tab in the browser (no mail-app setup).
         url = (
-            f"mailto:{to}?subject={urllib.parse.quote(subject)}"
+            "https://mail.google.com/mail/?view=cm&fs=1&tf=1"
+            f"&to={urllib.parse.quote(to)}"
+            f"&su={urllib.parse.quote(subject)}"
             f"&body={urllib.parse.quote(body)}"
         )
         self._open(url)
-        return (f"Drafted an email to {to} (subject: '{subject}') — opened in your "
-                f"mail app. Review it and hit send.")
+        return (f"Opened a Gmail draft to {to} (subject: '{subject}') in your browser. "
+                f"Review it and hit send.")
 
     def _open(self, url: str) -> None:
         if self._opener is not None:
