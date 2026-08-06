@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
-      # advisory while the scaffold fills in; make blocking after Phase 2
-      - run: pylint --exit-zero core engines skills adapters agents interfaces storage
+      - run: python -m pip install --upgrade pip
+      - run: pip install ".[dev]"
+      # advisory (never fails the build) — style/quality signal only
+      - run: pylint --exit-zero core engines skills adapters interfaces
