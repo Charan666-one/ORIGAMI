@@ -43,8 +43,9 @@ class ResearchSkill(Skill):
         query = (kwargs.get("query") or "").strip()
         if not query:
             return "What should I search for?"
+        recent = any(w in query.lower() for w in ("latest", "news", "today", "2025", "2026"))
         try:
-            results = self._search(query, max_results=5)
+            results = self._search(query, max_results=5, recent=recent)
         except Exception as exc:
             return f"Search failed ({exc}). DuckDuckGo may be rate-limiting — try again."
         if not results:
@@ -58,27 +59,43 @@ class ResearchSkill(Skill):
 
     # ------------------------------------------------------------------ helpers
 
-    def _search(self, query: str, max_results: int) -> list:
+    def _search(self, query: str, max_results: int, recent: bool = False) -> list:
         if self._searcher is not None:
             return self._searcher(query, max_results=max_results)
         from adapters.web.search import search  # lazy
-        return search(query, max_results=max_results)
+        return search(query, max_results=max_results, recent=recent)
 
     @staticmethod
     def _format(query: str, results: list) -> str:
         lines = [f"🔎 Top results for '{query}':"]
         for i, r in enumerate(results, 1):
-            lines.append(f"{i}. {r.title}\n   {r.url}")
+            star = " ✅official" if getattr(r, "official", False) else ""
+            lines.append(f"{i}. {r.title}{star}\n   {r.url}")
             if r.snippet:
                 lines.append(f"   {r.snippet[:160]}")
         return "\n".join(lines)
 
     async def _answer(self, query: str, results: list) -> str:
-        sources = "\n".join(f"[{i}] {r.title}: {r.snippet}" for i, r in enumerate(results, 1))
         links = "\n".join(f"[{i}] {r.url}" for i, r in enumerate(results, 1))
+
+        # a direct instant answer beats LLM synthesis for factual queries
+        direct = self._instant(query)
+        if direct:
+            return f"{direct}\n\nSources:\n{links}"
+
         if self.brain is None or not self.brain.can_think():
             return self._format(query, results)  # no model — just show results
+        sources = "\n".join(f"[{i}] {r.title}: {r.snippet}" for i, r in enumerate(results, 1))
         answer = await self.brain.summarize(
             f"Question: {query}\n\nSearch results:\n{sources}\n\n"
             f"Answer the question concisely using only these results.")
         return f"{answer}\n\nSources:\n{links}"
+
+    def _instant(self, query: str) -> Optional[str]:
+        if self._searcher is not None:  # tests inject search only; skip network IA
+            return None
+        try:
+            from adapters.web.search import instant_answer  # lazy
+            return instant_answer(query)
+        except Exception:
+            return None
