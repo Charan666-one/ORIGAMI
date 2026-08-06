@@ -433,3 +433,127 @@ script ever raises `ModuleNotFoundError: interfaces` again, rebuild the venv fir
   exercising all three risk tiers. **Sanity first:** `source .venv/bin/activate`;
   if the `origami` script errors on import, rebuild the venv (see Blockers).
   Verify live with `origami "run echo hello"` (expect a CONFIRM prompt).
+
+---
+
+## Session 004 — 2026-08-05 (consolidated: C2→C5 + Brain + Monitoring)
+
+### Session Summary
+
+A long, high-output session that took ORIGAMI from "the spine runs" to a genuinely
+useful daily assistant with a brain, memory, monitoring, and goal tracking. Covers
+several phases in one sitting (the journal fell behind during the build; this entry
+catches it up). Tags cut: `v0.3.0` (C2/C3 + Brain). Test suite grew 4 → 68, all green.
+
+### Completed Work
+
+- **Spotify connected end-to-end** (real playback). OAuth PKCE via the existing
+  adapter; fixes: env `.env` autoload, `SPOTIFY_REDIRECT_URI` default `127.0.0.1`
+  (Spotify dropped `localhost`), tolerate empty API bodies, show song names,
+  friendlier errors, **auto-launch the Spotify app + target a device** so "play X"
+  just works.
+- **C2 real actions:** terminal skill (`run`, first CONFIRM gate — verified
+  approve/decline live), desktop skill (`open`/`close` apps, SAFE).
+- **YouTube skill** (keyless top-video via results-page scrape) + `desktop.close_app`.
+- **C3 email:** `email.draft` opens a prefilled **Gmail compose tab** (switched
+  from `mailto:` which no-ops without a default mail app) — preview→approve.
+- **Brain Manager** (provider-independent, offline-first): Brain Interface
+  (reason/generate/summarize/code), Ollama + optional cloud (Groq/OpenAI, consent-
+  gated) + Echo fallback, `ResourceMonitor` (RAM/CPU/battery/temp via psutil).
+- **4-level intelligence** (L0 deterministic / L1 fast / L2 standard / L3 cloud):
+  `classify_level`, tiered models, resource-aware downgrade, cloud only with consent.
+- **Conversational fallback:** unmatched requests → `assistant.ask` (chat), so
+  "motivate me…" reaches the brain instead of "couldn't map".
+- **Speed tuning for 8GB:** switched default to `llama3.2:1b` (~4-5s vs 17s),
+  `num_ctx` 2048, keep-alive, CLI "working…" spinner, one-model-at-a-time guidance.
+- **C4 memory:** `JSONMemory` (facts, keyword retrieval, context injection into the
+  brain so answers use what ORIGAMI knows), `remember`/`recall`; **12-day expiry**
+  for ordinary facts + a **separate permanent store** for important ones.
+- **Monitoring Mode:** natural-time parsing (`in N sec/min/hours`, `at 5pm`,
+  `tomorrow`), `Scheduler` (~/.origami/tasks.json), `reminder.set/list/done/change`,
+  **streaks**, and `origami monitor` — a loop that fires macOS notifications at due
+  time and **repeats follow-ups until the task is marked done**.
+- **C5 Goal Mode:** `GoalState`/`Milestone`, `GoalBook`, `goal.create` (brain
+  decomposes an objective into 5-7 tracked milestones), `goal.status` (progress
+  bar), `goal.next`, `goal.done`. Verified: "help me get a Google internship" →
+  7-step plan, ticked off with progress.
+
+### Important Decisions
+
+- **Non-editable install is mandatory on this machine.** *Why:* the homebrew-python
+  venv's `site` intermittently fails to process `.pth` files, so BOTH setuptools
+  editable modes break `origami` with `ModuleNotFoundError: interfaces` (observed
+  0/10 after 18/18). Non-editable copies packages into site-packages (no `.pth`).
+  Trade-off: `make reinstall` after editing source. `make venv` uses `--copies`
+  (survives brew upgrades). This ate real time before being diagnosed.
+- **Renamed `platform/` → `platforms/`.** *Why:* compat/non-editable puts the repo
+  root on `sys.path`; the old `platform/` shadowed the stdlib `platform` module and
+  would break `requests`/`uvicorn`. Out-of-scope robot heritage; nothing imports it.
+- **Keyless-first everything (offline, no OAuth sagas):** email via Gmail web
+  compose, YouTube via HTML scrape, brain via local Ollama, memory/goals/tasks via
+  local JSON. Cloud is always optional + consent-gated. Matches offline-first.
+- **`llama3.2:1b` as the default model on 8GB.** *Why:* qwen3:4b (a reasoning model)
+  took 17s–120s and thrashed RAM; the 1B instruct model is ~4-5s and adequate for
+  chat/emails/goals. Quality tuning deferred by the user ("later").
+- **Reasoning models get `think:false`** and outputs are length-capped — reasoning
+  chains are too slow on 8GB.
+- **Registration order encodes routing priority** (keyword engine): Terminal before
+  Desktop; Goals before Reminder (so "completed milestone" is a goal step);
+  reminder.list before reminder.set; `assistant.ask` is the catch-all fallback.
+- **The architecture law held throughout:** ~9 new skills added, **zero `core/`
+  edits**, proven by routing/regression tests.
+
+### Current Architecture
+
+Unchanged in shape; every layer is now real except vision/navigation/voice (robot,
+parked). Brain sits behind the Brain Interface; skills depend only on injected
+abstractions (brain, memory, scheduler, goals). Composition root `main.py` builds
+one of each and injects them. `origami monitor` is a second entry alongside the
+one-shot CLI.
+
+### Current Project Status
+
+- **Version:** `v0.3.0` tagged (C2/C3 + Brain); C4/C5 committed, `v0.4.0` next.
+- **Completed:** C0, C1, C2, C3(email), Brain Manager + levels, C4 memory,
+  Monitoring Mode, C5 Goal Mode.
+- **Branch:** `main`, clean, pushed to `github.com/Charan666-one/ORIGAMI`.
+- **Health:** 🟢 68/68 tests green; genuinely usable daily assistant.
+- **Capabilities (Level 0 unless noted):** music (play/pause/skip), youtube,
+  open/close apps, terminal (CONFIRM), email draft (L1/L2), memory
+  remember/recall, reminders + monitor + streaks, goals create/status/next/done,
+  and conversational chat (L1/L2 via the brain).
+
+### Remaining Tasks (priority order)
+
+1. **C6 — proactive daily brief** (morning summary of goals/reminders/priorities),
+   and make `origami monitor` a macOS login-item so it auto-starts.
+2. Response-quality tuning (bigger/cloud model option; better prompts).
+3. Streaming output (perceived speed).
+4. Later: real vector memory, calendar/github skills, the Stage 3+ agents, robot.
+
+### Blockers
+
+None open. Resolved this session: the corrupted-venv / `.pth` saga (fix: non-
+editable + `--copies`), Spotify redirect-URI policy, `mailto:` no-op, platform
+shadowing, qwen3 slowness.
+
+### Lessons Learned
+
+- **Match the model to the hardware, not the ambition.** A 1B instruct model that
+  answers in 5s beats a 4B reasoner that stalls for two minutes on 8GB.
+- **"Keyless-first" avoids setup sagas.** Every capability that dodged OAuth (Gmail
+  web compose, YouTube scrape, local brain) shipped and worked immediately; the one
+  OAuth flow (Spotify) cost the most support back-and-forth.
+- **Verify installed entry points from another directory.** cwd on the path masked
+  a broken install repeatedly.
+- **Registration order IS the router.** With a keyword engine, skill order and
+  keyword specificity are the whole routing logic — test regressions guard it.
+
+### Next Session — resume here
+
+- **Current milestone:** C6 (proactive brief) — `docs/CHECKPOINTS.md`.
+- **First task:** an `origami brief` command + a daily trigger in `origami monitor`
+  that summarizes today's reminders, goal progress, and priorities (reuse Scheduler
+  + GoalBook + brain). Then a macOS login-item installer so `origami monitor`
+  auto-starts. **Sanity first:** `cd origami-robot`; if `origami` errors on import,
+  `make venv`. After editing source, `make reinstall`. Keep ONE Ollama model loaded.
