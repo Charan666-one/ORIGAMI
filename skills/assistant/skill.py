@@ -43,11 +43,12 @@ class AssistantSkill(Skill):
             ),
             ToolSpec(
                 name="assistant.ask",
-                description="Answer a question or reason about something with the AI brain.",
-                params={"prompt": "the question"},
+                description="Answer a question, chat, or reason about anything with the AI brain.",
+                params={"prompt": "the question or request"},
                 risk=Risk.SAFE,
                 keywords=("ask ", "explain", "what is", "what are", "how do",
                           "how does", "why ", "tell me", "who is"),
+                fallback=True,  # anything not matched by another tool becomes a chat
             ),
         ]
 

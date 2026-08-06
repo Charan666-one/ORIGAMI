@@ -29,3 +29,4 @@ class ToolSpec:
     params: Dict[str, str] = field(default_factory=dict)  # param name -> description
     risk: Risk = Risk.SAFE
     keywords: Tuple[str, ...] = ()  # phrases that route intent to this tool
+    fallback: bool = False          # catch-all when no keyword matches (chat -> brain)

@@ -120,7 +120,10 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
     """Pick the first tool whose keyword appears in the goal text. Generic: a new
     tool becomes reachable just by declaring keywords + a first param."""
     text_lower = goal.text.lower().strip()
+    fallback = None
     for spec in tools:
+        if spec.fallback:
+            fallback = spec
         for kw in spec.keywords:
             if kw.lower() in text_lower:
                 args = {}
@@ -131,6 +134,15 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
                     goal=goal,
                     steps=[Step(tool=spec.name, args=args, reason=f"matched '{kw}'")],
                 )
+
+    # nothing matched a specific tool -> hand the whole request to the brain (chat)
+    if fallback is not None:
+        args = {}
+        if fallback.params:
+            args[next(iter(fallback.params))] = goal.text
+        return Plan(goal=goal,
+                    steps=[Step(tool=fallback.name, args=args, reason="fallback (chat)")])
+
     return Plan(goal=goal, steps=[])
 
 

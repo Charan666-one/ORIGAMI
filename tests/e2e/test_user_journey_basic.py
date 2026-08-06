@@ -57,11 +57,12 @@ async def test_play_music_runs_end_to_end_keyless():
     assert "Playing" in result.summary
 
 
-async def test_unknown_goal_returns_graceful_summary():
+async def test_unmatched_goal_falls_back_to_chat():
+    # anything not matched by a specific tool becomes a conversational brain request
     orchestrator = build_orchestrator(spotify_client=FakeSpotifyClient())
-    result = await orchestrator.handle(Goal(text="defragment the toaster"))
-    assert not result.steps
-    assert "couldn't map" in result.summary.lower()
+    plan = await orchestrator.planner.plan(Goal(text="motivate me to finish my project"))
+    assert plan.steps[0].tool == "assistant.ask"
+    assert plan.steps[0].args["prompt"] == "motivate me to finish my project"
 
 
 # ------------------------------------------------------------- risk gate (🔴)
