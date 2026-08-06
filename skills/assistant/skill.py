@@ -14,10 +14,10 @@ from core.schemas.tool import Risk, ToolSpec
 from skills.base import Skill
 
 _NEEDS_MODEL = (
-    "I need a local model to think about that. Install Ollama and pull a model:\n"
+    "I need a local model to think about that. Install Ollama and pull a fast model:\n"
     "  brew install ollama && ollama serve\n"
-    "  ollama pull qwen3:4b\n"
-    "Then ask me again — no API key, runs offline."
+    "  ollama pull llama3.2:3b\n"
+    "Then ask me again — no API key, runs offline. (llama3.2:3b fits 8GB and is snappy.)"
 )
 
 
