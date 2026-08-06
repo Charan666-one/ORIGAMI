@@ -14,12 +14,19 @@ from core.orchestrator import Orchestrator
 from core.planner import Planner
 from engines.reasoning.providers.echo import EchoEngine
 from skills.registry import ToolRegistry, register_skill
+from skills.desktop.skill import DesktopSkill
 from skills.spotify.skill import SpotifySkill
+from skills.terminal.skill import TerminalSkill
 
 
-def build_orchestrator(confirmer=None, spotify_client=None) -> Orchestrator:
+def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=None,
+                       desktop_adapter=None) -> Orchestrator:
     registry = ToolRegistry()
+    # Registration order = keyword-match priority. Terminal before Desktop so an
+    # explicit "run ..." wins even if the command text contains "open".
     register_skill(registry, SpotifySkill(client=spotify_client))
+    register_skill(registry, TerminalSkill(executor=terminal_executor))
+    register_skill(registry, DesktopSkill(adapter=desktop_adapter))
 
     engine = EchoEngine()
     planner = Planner(engine, registry)

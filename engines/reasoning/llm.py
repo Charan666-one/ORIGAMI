@@ -48,13 +48,17 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
     Generic on purpose: a new tool becomes reachable just by declaring keywords
     and (optionally) a `query` param — no engine or core edits required.
     """
-    text = goal.text.lower().strip()
+    text_lower = goal.text.lower().strip()
     for spec in tools:
         for kw in spec.keywords:
-            if kw.lower() in text:
+            if kw.lower() in text_lower:
                 args = {}
-                if "query" in spec.params:
-                    args["query"] = _residual(text, kw) or goal.text
+                if spec.params:
+                    # fill the tool's first declared param with the free text
+                    # (e.g. spotify->query, terminal->command). Extract from the
+                    # original text to preserve case (shell commands need it).
+                    first_param = next(iter(spec.params))
+                    args[first_param] = _residual(goal.text, kw) or goal.text
                 return Plan(
                     goal=goal,
                     steps=[Step(tool=spec.name, args=args, reason=f"matched '{kw}'")],
@@ -63,7 +67,8 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
 
 
 def _residual(text: str, keyword: str) -> str:
-    """Text left after removing the matched keyword and common filler words."""
-    remainder = text.replace(keyword.lower(), " ")
-    remainder = re.sub(r"\b(some|the|a|an|please|for me|to)\b", " ", remainder)
+    """Text left after removing the matched keyword (case-insensitive), preserving
+    the case of the rest. No filler-word stripping — it would corrupt shell
+    commands and filenames (e.g. 'a.txt')."""
+    remainder = re.sub(re.escape(keyword), " ", text, flags=re.IGNORECASE)
     return re.sub(r"\s+", " ", remainder).strip()
