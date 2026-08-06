@@ -129,6 +129,32 @@ async def test_desktop_mac_controls():
     assert fake.url == "https://reddit.com"  # scheme added
 
 
+async def test_open_domain_opens_url_not_app():
+    from skills.desktop.skill import DesktopSkill
+    fake = FakeDesktop()
+    await DesktopSkill(adapter=fake).execute("desktop.open_app", app="github.com")
+    assert fake.url == "https://github.com" and fake.opened is None
+
+
+async def test_open_real_app_still_opens_app():
+    from skills.desktop.skill import DesktopSkill
+    fake = FakeDesktop()
+    await DesktopSkill(adapter=fake).execute("desktop.open_app", app="Safari")
+    assert fake.opened == "Safari" and fake.url is None
+
+
+async def test_open_bare_name_falls_back_to_website():
+    from skills.desktop.skill import DesktopSkill
+
+    class Raising(FakeDesktop):
+        def open_application(self, app_name):
+            raise RuntimeError("Unable to find application")
+
+    fake = Raising()
+    msg = await DesktopSkill(adapter=fake).execute("desktop.open_app", app="reddit")
+    assert fake.url == "https://reddit.com" and "reddit.com" in msg
+
+
 async def test_open_app_is_safe_and_runs_without_confirm():
     fake = FakeDesktop()
     # no confirmer at all -> a SAFE tool must still run (no consequence)

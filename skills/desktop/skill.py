@@ -16,6 +16,12 @@ from core.schemas.tool import Risk, ToolSpec
 from skills.base import Skill
 
 _NUM = re.compile(r"\d+")
+# a target that looks like a URL/domain (has a dot, no spaces) rather than an app
+_URLISH = re.compile(r"^(https?://|[\w-]+(\.[\w-]+)+)", re.IGNORECASE)
+
+
+def _looks_like_url(target: str) -> bool:
+    return " " not in target and bool(_URLISH.match(target))
 
 
 class DesktopSkill(Skill):
@@ -70,11 +76,10 @@ class DesktopSkill(Skill):
 
     def _dispatch(self, tool: str, kwargs: dict) -> str:
         if tool == "desktop.open_app":
-            app = (kwargs.get("app") or "").strip()
-            if not app:
-                return "Which app should I open?"
-            self.adapter.open_application(app)
-            return f"Opened {app}"
+            target = (kwargs.get("app") or "").strip()
+            if not target:
+                return "Which app or site should I open?"
+            return self._open_target(target)
         if tool == "desktop.close_app":
             app = (kwargs.get("app") or "").strip()
             if not app:
@@ -113,3 +118,21 @@ class DesktopSkill(Skill):
             text = self.adapter.get_clipboard()
             return f"📋 Clipboard: {text}" if text else "Clipboard is empty."
         raise ValueError(f"Unknown tool: {tool}")
+
+    def _open_target(self, target: str) -> str:
+        """Open an app OR a website. 'open github.com' / 'open google.com' are
+        websites; 'open Safari' / 'open Notes' are apps; a bare name that isn't an
+        app (e.g. 'open reddit') falls back to <name>.com."""
+        if _looks_like_url(target):
+            url = target if target.startswith(("http://", "https://")) else "https://" + target
+            self.adapter.open_url(url)
+            return f"Opened {url}"
+        try:
+            self.adapter.open_application(target)
+            return f"Opened {target}"
+        except Exception:
+            # not an installed app -> treat as a website (reddit -> reddit.com)
+            host = target if "." in target else target.replace(" ", "") + ".com"
+            url = "https://" + host
+            self.adapter.open_url(url)
+            return f"'{target}' isn't an app — opened {url} instead."
