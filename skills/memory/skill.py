@@ -43,11 +43,14 @@ class MemorySkill(Skill):
 
     async def execute(self, tool: str, **kwargs) -> Any:
         if tool == "memory.remember":
-            text = _LEAD.sub("", (kwargs.get("text") or "").strip())
+            raw = (kwargs.get("text") or "").strip()
+            text = _LEAD.sub("", raw)
             if not text:
                 return "What should I remember?"
-            self.memory.add(text, kind="fact")
-            return f"Got it — I'll remember: {text}"
+            important = any(w in raw.lower() for w in ("important", "always", "never forget"))
+            self.memory.add(text, important=important)
+            tag = " ⭐(kept permanently)" if important else ""
+            return f"Got it — I'll remember: {text}{tag}"
         if tool == "memory.recall":
             query = (kwargs.get("query") or "").strip()
             hits = self.memory.search(query, limit=5)

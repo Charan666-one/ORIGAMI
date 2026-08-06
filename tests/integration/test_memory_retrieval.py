@@ -74,3 +74,36 @@ async def test_assistant_answers_use_memory_context(tmp_path):
     out = await skill.execute("assistant.ask", prompt="what is my origami project")
 
     assert "software AI operating system" in out   # memory was injected into the prompt
+
+
+# ------------------------------------------------- expiry + important store
+
+def test_important_memory_is_separate_and_permanent(tmp_path):
+    m = JSONMemory(path=tmp_path / "mem.json")
+    m.add("ordinary fact")
+    m.add("crucial deadline", important=True)
+    assert (tmp_path / "mem-important.json").exists()
+    assert any("crucial" in r.text for r in m.all())
+
+
+def test_ordinary_memory_expires_after_span(tmp_path):
+    import json
+    import time
+    p = tmp_path / "mem.json"
+    JSONMemory(path=p, expire_days=12).add("stale fact")
+    data = json.loads(p.read_text())
+    data[0]["created_at"] = time.time() - 13 * 86400   # older than 12 days
+    p.write_text(json.dumps(data))
+    assert not any("stale" in r.text for r in JSONMemory(path=p, expire_days=12).all())
+
+
+def test_important_memory_never_expires(tmp_path):
+    import json
+    import time
+    p = tmp_path / "mem.json"
+    JSONMemory(path=p).add("keep forever", important=True)
+    ip = tmp_path / "mem-important.json"
+    data = json.loads(ip.read_text())
+    data[0]["created_at"] = time.time() - 100 * 86400  # ancient
+    ip.write_text(json.dumps(data))
+    assert any("keep forever" in r.text for r in JSONMemory(path=p).all())

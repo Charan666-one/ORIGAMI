@@ -65,9 +65,16 @@ def _cloud_consent(provider_name: str, task) -> bool:
 
 def main() -> int:
     _load_env()
-    text = " ".join(sys.argv[1:]).strip()
+    args = sys.argv[1:]
+
+    if args and args[0] == "monitor":
+        from interfaces.cli.monitor import run_monitor
+        return run_monitor()
+
+    text = " ".join(args).strip()
     if not text:
         print('Usage: origami "<what you want>"   e.g. origami "play some lofi"')
+        print('       origami monitor            # run the reminder/monitoring loop')
         return 2
 
     from main import build_orchestrator  # composition root (repo-root main.py)
