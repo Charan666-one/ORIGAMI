@@ -126,7 +126,7 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
             fallback = spec
         for kw in spec.keywords:
             if kw.lower() in text_lower:
-                args = {}
+                args = {"_raw": goal.text}  # full text, for skills that need context
                 if spec.params:
                     first_param = next(iter(spec.params))
                     args[first_param] = _residual(goal.text, kw) or goal.text
@@ -137,7 +137,7 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
 
     # nothing matched a specific tool -> hand the whole request to the brain (chat)
     if fallback is not None:
-        args = {}
+        args = {"_raw": goal.text}
         if fallback.params:
             args[next(iter(fallback.params))] = goal.text
         return Plan(goal=goal,

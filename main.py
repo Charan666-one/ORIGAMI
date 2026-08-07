@@ -29,6 +29,7 @@ from skills.email.skill import EmailSkill
 from skills.goals.skill import GoalsSkill
 from skills.memory.skill import MemorySkill
 from skills.profile.skill import ProfileSkill
+from skills.projects.skill import ProjectsSkill
 from skills.reminder.skill import ReminderSkill
 from skills.research.skill import ResearchSkill
 from skills.spotify.skill import SpotifySkill
@@ -68,6 +69,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     # "run "); Terminal before Desktop ("run open X" = terminal); Assistant last
     # (conversational catch-all fallback).
     register_skill(registry, SpotifySkill(client=spotify_client))
+    register_skill(registry, ProjectsSkill())  # before Desktop: "open careerlens" beats "open "
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))
     register_skill(registry, TerminalSkill(executor=terminal_executor))
