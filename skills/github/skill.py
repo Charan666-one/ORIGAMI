@@ -31,16 +31,12 @@ class GitHubSkill(Skill):
         return self._client
 
     def specs(self) -> List[ToolSpec]:
+        # Specific actions FIRST; github.repos is the catch-all last (broad keywords),
+        # so any "...github / repo..." that isn't a specific action lists repos.
         return [
-            ToolSpec(name="github.repos", description="List your GitHub repositories.",
+            ToolSpec(name="github.me", description="Your GitHub profile summary.",
                      risk=Risk.SAFE,
-                     keywords=("my repos", "my repositories", "repositories", "list my repos",
-                               "my github repos", "list repos", "github repos", "active repos",
-                               "repos in github", "repositories in github")),
-            ToolSpec(name="github.prs", description="List open pull requests in a repo.",
-                     params={"repo": "owner/repo"}, risk=Risk.SAFE,
-                     keywords=("my pull requests", "my prs", "pull requests", "list prs",
-                               "open prs")),
+                     keywords=("my github profile", "github profile", "who am i on github")),
             ToolSpec(name="github.create_issue",
                      description="Create an issue in a repo.",
                      params={"text": "repo and issue title"}, risk=Risk.CONFIRM,
@@ -50,13 +46,18 @@ class GitHubSkill(Skill):
                      params={"repo": "owner/repo"}, risk=Risk.SAFE,
                      keywords=("my issues", "list issues", "github issues", "open issues",
                                "issues in")),
+            ToolSpec(name="github.prs", description="List open pull requests in a repo.",
+                     params={"repo": "owner/repo"}, risk=Risk.SAFE,
+                     keywords=("my pull requests", "my prs", "pull requests", "list prs",
+                               "open prs")),
             ToolSpec(name="github.search", description="Search GitHub repositories.",
                      params={"query": "what to search"}, risk=Risk.SAFE,
                      keywords=("search github", "search repos", "find a repo",
                                "github search")),
-            ToolSpec(name="github.me", description="Your GitHub profile summary.",
-                     risk=Risk.SAFE,
-                     keywords=("my github", "github profile", "who am i on github")),
+            ToolSpec(name="github.repos", description="List your GitHub repositories.",
+                     risk=Risk.SAFE,  # catch-all github handler
+                     keywords=("repos", "repo ", "repositories", "github", "my repos",
+                               "my repositories")),
         ]
 
     async def execute(self, tool: str, **kwargs) -> Any:

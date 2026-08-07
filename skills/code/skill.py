@@ -71,7 +71,7 @@ class CodeSkill(Skill):
     # ------------------------------------------------------------------ actions
 
     async def _scan(self, target: str) -> str:
-        path = self._resolve_path(target)
+        path, name = self._resolve(target)
         if not path:
             return (f"Couldn't find '{target}'. Give a path, or a project name from "
                     f"~/.origami/projects.json.")
@@ -80,7 +80,6 @@ class CodeSkill(Skill):
         except Exception as exc:
             return f"Couldn't scan: {exc}"
 
-        name = Path(path).name
         # Save the structure FIRST — resilient: a slow/timed-out model never loses the scan.
         record = {
             "path": profile["path"], "languages": profile["languages"],
@@ -154,19 +153,20 @@ class CodeSkill(Skill):
 
     # ------------------------------------------------------------------ helpers
 
-    def _resolve_path(self, target: str) -> Optional[str]:
+    def _resolve(self, target: str):
+        """Return (path, clean_name). A project alias is used as the clean name so
+        'scan wavex' stores 'wavex', not the folder basename."""
         target = re.sub(r"\b(the|repo|codebase|code|project|at|in)\b", " ", target,
                         flags=re.IGNORECASE).strip()
         if not target:
-            return None
+            return None, None
         p = Path(target).expanduser()
         if p.exists() and p.is_dir():
-            return str(p)
-        # project name from the launcher config
-        for name, cfg in self._projects().items():
+            return str(p), p.name
+        for name, cfg in self._projects().items():  # launcher config alias
             if name.lower() == target.lower() and Path(cfg.get("path", "")).exists():
-                return cfg["path"]
-        return None
+                return cfg["path"], name
+        return None, None
 
     def _projects(self) -> dict:
         raw = read_text(self.projects_path)
