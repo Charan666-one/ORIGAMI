@@ -557,3 +557,98 @@ shadowing, qwen3 slowness.
   + GoalBook + brain). Then a macOS login-item installer so `origami monitor`
   auto-starts. **Sanity first:** `cd origami-robot`; if `origami` errors on import,
   `make venv`. After editing source, `make reinstall`. Keep ONE Ollama model loaded.
+
+---
+
+## Session 005 — 2026-08-07
+
+### Session Summary
+
+Productivity polish + a new core engine. Filled UX gaps (daily brief, auto-generated
+help, codebase cleanup), made GitHub *reason* over repos instead of listing them, and
+built the **Project Health Engine** — a self-auditing engine that keeps ORIGAMI
+architecturally clean for its whole life. Suite grew 113 → 130, all green.
+
+### Completed Work
+
+- **GitHub analysis**: `github.analyze` feeds the repo table (name/language/description)
+  to the local brain — "best project", "my javascript projects", "which repo to polish"
+  now get reasoned answers (~8s), not a raw dump. Robust routing: specific actions
+  first, `github.repos` as catch-all (0 mismatches in audit).
+- **Productivity polish**: `brief.today` (streak + reminders + goals + codebases at a
+  glance, instant/no model), auto-generated `origami help`, `code.forget` cleanup,
+  clean codebase names from project aliases.
+- **Project Health Engine** (`engines/health/`): AST-based architecture/structure/
+  quality/docs/dependency/capability/integration/scalability analysis with severity
+  scoring, capability health cards, and a simulated future-integration matrix.
+  Exposed via `health.check` / `health.audit` / `health.capabilities`.
+- **Perf/robustness earlier in the session**: hard 60s model timeout (no infinite
+  waits), 3× faster code scans (47s → 14s), scan structure persisted before the model
+  call so a timeout never loses work.
+
+### Important Decisions
+
+- **The Health Engine only recommends — never edits.** *Why:* an engine that could
+  rewrite core would itself become an architectural risk. Observation-only keeps it
+  safe to run continuously and honest as a referee. It also imports no project code
+  (pure AST), so analysis can never disturb a running ORIGAMI.
+- **False positives are worse than no engine.** *Why:* the first run scored Integration
+  38% by flagging dormant scaffold (`skills/coding`, `skills/robot`) as "broken
+  capabilities" and stdlib/optional imports as undeclared deps. Fixed to treat empty
+  placeholders as `info` and to whitelist stdlib + lazily-imported optional deps.
+  Score went 87.6% → 96.6% with *no code change* — the difference was analyzer honesty.
+- **Source-repo detection.** *Why:* run from the installed console script, the engine
+  analysed site-packages (no tests/) and reported a hollow 82.8%. Now resolves
+  $ORIGAMI_ROOT → cwd → module, and warns when it isn't analysing a real checkout.
+- **Capability = skill.** *Why:* ORIGAMI's plug-in unit is a skill; scoring each on
+  contract/registration/tests/docs/size gives a per-capability health card that maps
+  directly to the "can it plug in?" question.
+
+### Current Architecture
+
+Unchanged in shape — the Health Engine is a *new engine*, not a core change; it reads
+the repo and reports. It confirms the founding law still holds: **architecture 100%,
+integration 100%** — core imports no concrete capability, and all six simulated future
+integrations (new capability, CodeLens, Study, Vision, Robotics, external plugins) can
+plug in through the registry/Skill contract without touching core.
+
+### Current Project Status
+
+- **Version:** `v0.4.0` tagged; well ahead of it on main.
+- **Health:** 97.4% overall (architecture 100 · integration 100 · quality 100 ·
+  dependencies 100 · performance 100 · docs 94 · scalability 94 · structure 91).
+- **Scale:** 17 capabilities · 52 tools · 130 tests green.
+- **Branch:** `main`, clean, pushed.
+
+### Remaining Tasks (priority order)
+
+1. Act on the engine's own findings: split `engines/health/analyzers.py` (489 lines),
+   add module docstrings, delete `skills/{coding,robot}` empty scaffold.
+2. **Routing upgrade** — the engine flags keyword routing as collision-prone at 17
+   capabilities (we have hit this repeatedly). Plan an intent classifier before ~50.
+3. Streaming output (perceived speed); CareerLens/CodeLens API skills; the build/debug
+   phase (autonomous coding); C6 proactive brief automation.
+
+### Blockers
+
+None. GitHub CI failures earlier were GitHub-side ("Failed to resolve action download
+info" / "Service Unavailable"), not project failures — re-run when Actions is healthy.
+
+### Lessons Learned
+
+- **A self-auditing tool must be calibrated before it is trusted.** The first run's
+  score was wrong in both directions; tuning the analyzers (not the code) fixed it.
+- **The engine caught its own author's mistakes** — flagged `analyzers.py` as oversized
+  and predicted the routing-collision problem we had been fixing by hand all session.
+  That is the strongest evidence it is measuring something real.
+- **Installed vs source matters for any self-analysis tool** — resolve the target
+  explicitly rather than assuming the module's location.
+
+### Next Session — resume here
+
+- **Current module:** `engines/health/` (act on its findings) or routing.
+- **First task:** either (a) split `engines/health/analyzers.py` into
+  `architecture.py` / `structure.py` / `capabilities.py`, or (b) start the intent
+  classifier to replace keyword routing. Run `origami "health check"` first — it is
+  now the fastest way to see what needs attention. **Sanity:** `cd origami-robot`;
+  `make reinstall` after source edits; keep ONE Ollama model loaded.
