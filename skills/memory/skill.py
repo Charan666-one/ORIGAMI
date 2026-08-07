@@ -54,7 +54,12 @@ class MemorySkill(Skill):
         if tool == "memory.recall":
             query = (kwargs.get("query") or "").strip()
             hits = self.memory.search(query, limit=5)
-            if not hits:
-                return f"I don't have anything stored about '{query}'."
-            return "Here's what I remember:\n" + "\n".join(f"- {r.text}" for r in hits)
+            if hits:
+                return "Here's what I remember:\n" + "\n".join(f"- {r.text}" for r in hits)
+            # generic ask ("about me") or no match -> show what I do know so far
+            recent = self.memory.all()[-10:]
+            if recent:
+                return ("Here's what I know about you so far:\n"
+                        + "\n".join(f"- {r.text}" for r in reversed(recent)))
+            return "I haven't learned anything about you yet."
         raise ValueError(f"Unknown tool: {tool}")

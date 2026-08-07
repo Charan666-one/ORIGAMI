@@ -15,6 +15,7 @@ from core.executor import Executor
 from core.orchestrator import Orchestrator
 from core.planner import Planner
 from engines.memory.engine import JSONMemory
+from engines.memory.learner import MemoryLearner
 from engines.memory.profile import UserProfile
 from engines.planning.goals import GoalBook
 from engines.planning.scheduler import Scheduler
@@ -81,4 +82,4 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
 
     planner = Planner(brain, registry)
     executor = Executor(registry, confirmer=confirmer)
-    return Orchestrator(planner, executor)
+    return Orchestrator(planner, executor, learner=MemoryLearner(memory))

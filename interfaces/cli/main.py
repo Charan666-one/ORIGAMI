@@ -82,6 +82,8 @@ def main() -> int:
     orchestrator = build_orchestrator(confirmer=_cli_confirmer, cloud_consent=_cloud_consent)
     result = asyncio.run(_with_spinner(orchestrator.handle(Goal(text=text, source="cli"))))
     print(result.summary)
+    if result.learned:
+        print(f"🧠 (learned: {'; '.join(result.learned)})")
     return 0 if result.success or not result.steps else 1
 
 

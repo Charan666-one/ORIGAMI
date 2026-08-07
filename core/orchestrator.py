@@ -21,11 +21,13 @@ from core.session import Session
 class Orchestrator:
     def __init__(self, planner: Planner, executor: Executor,
                  context: Optional[ContextBuilder] = None,
-                 session: Optional[Session] = None) -> None:
+                 session: Optional[Session] = None,
+                 learner: Optional[object] = None) -> None:
         self.planner = planner
         self.executor = executor
         self.context = context or ContextBuilder()
         self.session = session or Session()
+        self.learner = learner  # optional: passively learns facts from each request
 
     async def handle(self, goal: Goal) -> RunResult:
         goal = self.context.build(goal)
@@ -35,5 +37,12 @@ class Orchestrator:
                                summary="I couldn't map that to a known tool yet.")
         else:
             result = await self.executor.run(plan)
+
+        if self.learner is not None:  # learn about the user from what they said
+            try:
+                result.learned = self.learner.learn(goal.text)
+            except Exception:
+                pass
+
         self.session.record(result)
         return result

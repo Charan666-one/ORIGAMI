@@ -28,6 +28,7 @@ class RunResult:
     goal: Goal
     steps: List[StepResult] = field(default_factory=list)
     summary: str = ""
+    learned: List[str] = field(default_factory=list)  # facts passively learned this run
 
     @property
     def success(self) -> bool:
