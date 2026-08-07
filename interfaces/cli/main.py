@@ -100,6 +100,10 @@ def main() -> int:
         from interfaces.cli.monitor import run_monitor
         return run_monitor()
 
+    if args and args[0] in ("voice", "talk"):
+        from interfaces.cli.voice import run_voice
+        return run_voice()
+
     if args and args[0] in ("dashboard", "ui"):
         import webbrowser
         import uvicorn

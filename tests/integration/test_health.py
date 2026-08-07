@@ -74,6 +74,22 @@ def test_empty_placeholder_is_info_not_critical(tmp_path):
     assert any(f.severity == "info" and "placeholder" in f.message for f in findings)
 
 
+def test_detects_stdlib_shadowing(tmp_path):
+    """Regression: a top-level `platform/` package broke onnxruntime twice."""
+    repo = _repo(tmp_path)
+    (repo / "platform").mkdir()
+    (repo / "platform" / "__init__.py").write_text("", encoding="utf-8")
+    findings = analyze_structure(repo)
+    assert any(f.severity == "critical" and "shadows the Python standard library" in f.message
+               for f in findings)
+
+
+def test_no_stdlib_shadowing_in_this_repo():
+    from engines.health.engine import find_repo_root
+    findings = analyze_structure(find_repo_root())
+    assert not [f for f in findings if "shadows the Python standard library" in f.message]
+
+
 def test_detects_large_file(tmp_path):
     repo = _repo(tmp_path)
     (repo / "core" / "big.py").write_text('"""Big."""\n' + "x = 1\n" * 500, encoding="utf-8")

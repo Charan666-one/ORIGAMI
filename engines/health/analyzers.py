@@ -173,9 +173,27 @@ def _find_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
 
 # ------------------------------------------------------------------- structure
 
+#: importing any of these from the repo root would shadow the standard library
+STDLIB_NAMES = {"platform", "types", "json", "time", "select", "signal", "socket",
+                "string", "queue", "copy", "io", "abc", "code", "email", "logging",
+                "math", "random", "secrets", "shutil", "test", "typing", "uuid"}
+
+
 def analyze_structure(root: Path) -> List[Finding]:
     findings: List[Finding] = []
     empty_pkgs: List[str] = []
+
+    # Top-level packages/modules that shadow the stdlib break third-party imports
+    # (e.g. onnxruntime calling platform.system()) whenever cwd is the repo root.
+    for entry in root.iterdir():
+        name = entry.name[:-3] if entry.suffix == ".py" else entry.name
+        if name in STDLIB_NAMES and (entry.is_dir() and (entry / "__init__.py").exists()
+                                     or entry.suffix == ".py"):
+            findings.append(Finding(
+                "structure", "critical",
+                f"'{name}' shadows the Python standard library", _rel(root, entry),
+                f"Rename {name}/ (e.g. {name}s/) — while it exists, any dependency "
+                f"doing `import {name}` gets this package instead and breaks."))
 
     for layer in LAYERS:
         for path in python_files(root, layer):
