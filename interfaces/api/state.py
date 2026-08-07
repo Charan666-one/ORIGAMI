@@ -129,7 +129,24 @@ def build_state(orchestrator=None, health_cache: Dict[str, Any] | None = None) -
     # --- Now playing (best-effort; silent without Spotify credentials) -------
     state["now_playing"] = _now_playing()
 
+    # --- Authentication Engine ----------------------------------------------
+    state["auth"] = _auth()
+
     return state
+
+
+def _auth() -> Dict[str, Any]:
+    """Identity status for the dashboard (never exposes the embedding)."""
+    try:
+        from engines.auth.engine import AuthenticationEngine
+        s = AuthenticationEngine().status()
+        return {"enrolled": s["enrolled"], "user": s["user"],
+                "wake_phrase": s["wake_phrase"], "verifier": s["verifier"],
+                "session": s["session"], "locked_out": s["locked_out"],
+                "methods": [m["name"] for m in s["methods"] if m["available"]],
+                "confidence": s["session"]["confidence"]}
+    except Exception:
+        return {"enrolled": False, "session": {"active": False}, "methods": []}
 
 
 def _system() -> Dict[str, Any]:

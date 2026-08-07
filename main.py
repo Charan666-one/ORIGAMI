@@ -24,6 +24,7 @@ from engines.reasoning.brain import BrainManager
 from engines.reasoning.providers.ollama import OllamaProvider
 from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
+from skills.auth.skill import AuthSkill
 from skills.brief.skill import BriefSkill
 from skills.calendar.skill import CalendarSkill
 from skills.code.skill import CodeSkill
@@ -90,6 +91,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, GitHubSkill(brain=brain))
     register_skill(registry, HealthSkill())
     register_skill(registry, VoiceSkill())
+    register_skill(registry, AuthSkill())
     register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))
