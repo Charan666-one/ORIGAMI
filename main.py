@@ -14,6 +14,7 @@ import os
 from core.executor import Executor
 from core.orchestrator import Orchestrator
 from core.planner import Planner
+from engines.knowledge.codebases import CodebaseStore
 from engines.memory.engine import JSONMemory
 from engines.memory.learner import MemoryLearner
 from engines.memory.profile import UserProfile
@@ -23,6 +24,7 @@ from engines.reasoning.brain import BrainManager
 from engines.reasoning.providers.ollama import OllamaProvider
 from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
+from skills.brief.skill import BriefSkill
 from skills.calendar.skill import CalendarSkill
 from skills.code.skill import CodeSkill
 from skills.desktop.skill import DesktopSkill
@@ -64,15 +66,17 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     scheduler = scheduler if scheduler is not None else Scheduler()
     goals = goals if goals is not None else GoalBook()
 
+    codebases = CodebaseStore()
     registry = ToolRegistry()
     # Registration order = keyword-match priority (first keyword hit wins). Ordering
     # constraints: Goals before Reminder ("completed milestone" = goal step);
     # Reminder before Terminal ("remind me to run ..." must not hit terminal's
     # "run "); Terminal before Desktop ("run open X" = terminal); Assistant last
     # (conversational catch-all fallback).
+    register_skill(registry, BriefSkill(scheduler=scheduler, goals=goals, codebases=codebases))
     register_skill(registry, SpotifySkill(client=spotify_client))
     # Code before Projects: "scan careerlens" is a code-scan, not a project launch
-    register_skill(registry, CodeSkill(brain=brain, memory=memory))
+    register_skill(registry, CodeSkill(brain=brain, memory=memory, store=codebases))
     register_skill(registry, ProjectsSkill())  # before Desktop: "open careerlens" beats "open "
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))

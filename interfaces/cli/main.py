@@ -57,6 +57,34 @@ async def _cli_confirmer(spec: ToolSpec, step: Step) -> bool:
     return input("   Proceed? [y/N]: ").strip().lower() in ("y", "yes")
 
 
+def _help_text() -> str:
+    """Auto-generated from the live registry, so it never goes stale."""
+    from main import build_orchestrator
+
+    groups: dict[str, list] = {}
+    for spec in build_orchestrator().executor.registry.all():
+        groups.setdefault(spec.name.split(".", 1)[0], []).append(spec)
+
+    icons = {"spotify": "🎵", "youtube": "▶️", "desktop": "🖥️", "terminal": "💻",
+             "email": "📧", "reminder": "⏰", "goal": "🎯", "memory": "🧠",
+             "calendar": "📅", "research": "🔎", "github": "🐙", "code": "📦",
+             "project": "🚀", "profile": "👤", "assistant": "💬", "brief": "📋"}
+    risk_mark = {"confirm": " 🟡", "critical": " 🔴"}
+
+    lines = ['ORIGAMI — say what you want:  origami "<request>"', ""]
+    for group in sorted(groups):
+        specs = groups[group]
+        lines.append(f"{icons.get(group, '•')} {group}")
+        for s in specs:
+            example = s.keywords[0].strip() if s.keywords else s.name
+            mark = risk_mark.get(getattr(s.risk, "value", ""), "")
+            lines.append(f"   {example:<24} {s.description}{mark}")
+        lines.append("")
+    lines.append("🟡 asks to confirm · 🔴 needs explicit approval")
+    lines.append('Also: origami monitor   (background reminders + follow-ups)')
+    return "\n".join(lines)
+
+
 def _cloud_consent(provider_name: str, task) -> bool:
     """Asked before ORIGAMI uses any cloud model — it never auto-depends on one."""
     print(f"☁️  The local model can't handle this. Use cloud provider '{provider_name}'?")
@@ -72,10 +100,9 @@ def main() -> int:
         return run_monitor()
 
     text = " ".join(args).strip()
-    if not text:
-        print('Usage: origami "<what you want>"   e.g. origami "play some lofi"')
-        print('       origami monitor            # run the reminder/monitoring loop')
-        return 2
+    if not text or text.lower() in ("help", "--help", "-h", "what can you do"):
+        print(_help_text())
+        return 0 if text else 2
 
     from main import build_orchestrator  # composition root (repo-root main.py)
 

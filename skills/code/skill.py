@@ -40,6 +40,10 @@ class CodeSkill(Skill):
                      keywords=("scan ", "analyze the code", "analyze codebase",
                                "understand the codebase", "understand this repo",
                                "scan the repo", "scan codebase")),
+            ToolSpec(name="code.forget", description="Forget a learned codebase.",
+                     params={"text": "codebase name"}, risk=Risk.SAFE,
+                     keywords=("forget the codebase", "forget codebase", "remove codebase",
+                               "delete codebase")),
             ToolSpec(name="code.list", description="List codebases ORIGAMI has learned.",
                      risk=Risk.SAFE,
                      keywords=("scanned codebases", "my codebases", "learned codebases",
@@ -60,6 +64,11 @@ class CodeSkill(Skill):
         raw = (kwargs.get("_raw") or kwargs.get("text") or "").strip()
         if tool == "code.list":
             return self._list()
+        if tool == "code.forget":
+            target = (kwargs.get("text") or raw).strip()
+            name = self._name_in(target) or target
+            return (f"🗑️ Forgot codebase '{name}'." if self.store.forget(name)
+                    else f"I don't have a codebase called '{name}'.")
         if tool == "code.scan":
             return await self._scan(kwargs.get("text", raw).strip())
         if tool == "code.explain":

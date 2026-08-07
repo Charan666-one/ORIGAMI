@@ -38,6 +38,13 @@ class CodebaseStore:
     def get(self, name: str) -> Optional[dict]:
         return self._data.get(name.lower())
 
+    def forget(self, name: str) -> bool:
+        if name.lower() in self._data:
+            del self._data[name.lower()]
+            atomic_write_json(self.path, self._data)
+            return True
+        return False
+
     def names(self) -> List[str]:
         return list(self._data.keys())
 
