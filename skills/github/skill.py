@@ -34,8 +34,9 @@ class GitHubSkill(Skill):
         return [
             ToolSpec(name="github.repos", description="List your GitHub repositories.",
                      risk=Risk.SAFE,
-                     keywords=("my repos", "my repositories", "list my repos",
-                               "my github repos", "list repos")),
+                     keywords=("my repos", "my repositories", "repositories", "list my repos",
+                               "my github repos", "list repos", "github repos", "active repos",
+                               "repos in github", "repositories in github")),
             ToolSpec(name="github.prs", description="List open pull requests in a repo.",
                      params={"repo": "owner/repo"}, risk=Risk.SAFE,
                      keywords=("my pull requests", "my prs", "pull requests", "list prs",

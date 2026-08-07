@@ -24,6 +24,7 @@ from engines.reasoning.providers.ollama import OllamaProvider
 from skills.registry import ToolRegistry, register_skill
 from skills.assistant.skill import AssistantSkill
 from skills.calendar.skill import CalendarSkill
+from skills.code.skill import CodeSkill
 from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
 from skills.github.skill import GitHubSkill
@@ -70,6 +71,8 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     # "run "); Terminal before Desktop ("run open X" = terminal); Assistant last
     # (conversational catch-all fallback).
     register_skill(registry, SpotifySkill(client=spotify_client))
+    # Code before Projects: "scan careerlens" is a code-scan, not a project launch
+    register_skill(registry, CodeSkill(brain=brain, memory=memory))
     register_skill(registry, ProjectsSkill())  # before Desktop: "open careerlens" beats "open "
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
     register_skill(registry, ReminderSkill(scheduler=scheduler))
