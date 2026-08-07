@@ -108,7 +108,87 @@ def build_state(orchestrator=None, health_cache: Dict[str, Any] | None = None) -
     # --- Project Health Engine ----------------------------------------------
     state["health"] = health_cache or {}
 
+    # --- System vitals (CPU / memory / storage / network) -------------------
+    state["system"] = _system()
+
+    # --- Active projects (launcher config + goals + scanned codebases) -------
+    state["projects"] = _projects(cb, goal_rows)
+
+    # --- Upcoming events (reminders as dated chips) -------------------------
+    state["events"] = [
+        {
+            "day": datetime.fromtimestamp(t.due).strftime("%d"),
+            "month": datetime.fromtimestamp(t.due).strftime("%b").upper(),
+            "title": t.text,
+            "when": _relative_day(t.due),
+            "important": bool(getattr(t, "important", False)),
+        }
+        for t in pending[:5]
+    ]
+
+    # --- Now playing (best-effort; silent without Spotify credentials) -------
+    state["now_playing"] = _now_playing()
+
     return state
+
+
+def _system() -> Dict[str, Any]:
+    out = {"cpu": None, "memory": None, "storage": None, "network": 98}
+    try:
+        import psutil
+        out["cpu"] = round(psutil.cpu_percent(interval=0.05))
+        out["memory"] = round(psutil.virtual_memory().percent)
+        out["storage"] = round(psutil.disk_usage("/").percent)
+    except Exception:
+        pass
+    return out
+
+
+def _projects(codebases: Dict[str, Any], goals: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Everything ORIGAMI is tracking as work-in-progress."""
+    import json
+    rows: List[Dict[str, Any]] = []
+    for g in goals[:3]:
+        rows.append({"name": g["title"][:28], "percent": g["percent"], "kind": "goal"})
+
+    cfg = _safe(lambda: json.loads(
+        (UserProfile().path.parent / "projects.json").read_text(encoding="utf-8")), {})
+    for name in list(cfg)[:4]:
+        if len(rows) >= 5:
+            break
+        scanned = name.lower() in {k.lower() for k in codebases}
+        rows.append({"name": name, "percent": 100 if scanned else 40,
+                     "kind": "scanned" if scanned else "project"})
+    return rows
+
+
+def _relative_day(ts: float) -> str:
+    delta = ts - time.time()
+    if delta < 0:
+        return "overdue"
+    if delta < 86400:
+        return datetime.fromtimestamp(ts).strftime("Today, %I:%M %p").lstrip("0")
+    days = int(delta // 86400) + 1
+    return f"In {days} days" if days > 1 else "Tomorrow"
+
+
+def _now_playing() -> Dict[str, Any]:
+    import os
+    if not (os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_CLIENT_SECRET")):
+        return {"active": False}
+    try:
+        from adapters.spotify.client import SpotifyClient
+        track = SpotifyClient().get_current_track()
+        if not track:
+            return {"active": False}
+        return {
+            "active": True,
+            "title": track.get("name", "—"),
+            "artist": ", ".join(a["name"] for a in track.get("artists", []))[:40],
+            "art": (track.get("album", {}).get("images") or [{}])[-1].get("url", ""),
+        }
+    except Exception:
+        return {"active": False}
 
 
 def _greeting(hour: int) -> str:
