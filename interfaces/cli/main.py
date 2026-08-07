@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import sys
+import threading
 import time
 
 from core.schemas.goal import Goal
@@ -98,6 +99,16 @@ def main() -> int:
     if args and args[0] == "monitor":
         from interfaces.cli.monitor import run_monitor
         return run_monitor()
+
+    if args and args[0] in ("dashboard", "ui"):
+        import webbrowser
+        import uvicorn
+        port = int(args[1]) if len(args) > 1 and args[1].isdigit() else 8420
+        url = f"http://127.0.0.1:{port}"
+        print(f"🩻  ORIGAMI dashboard → {url}   (Ctrl+C to stop)")
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+        uvicorn.run("interfaces.api.app:app", host="127.0.0.1", port=port, log_level="warning")
+        return 0
 
     text = " ".join(args).strip()
     if not text or text.lower() in ("help", "--help", "-h", "what can you do"):

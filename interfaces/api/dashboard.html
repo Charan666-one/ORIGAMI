@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ORIGAMI — Personal AI Operating System</title>
+<style>
+/* ============================ ORIGAMI design system ======================== */
+:root{
+  --bg:#04060f; --bg2:#070b1a;
+  --cyan:#22d3ee; --cyan-dim:#0e7490;
+  --violet:#a855f7; --magenta:#e879f9; --blue:#3b82f6;
+  --amber:#fbbf24; --green:#34d399; --red:#f87171;
+  --panel:rgba(10,16,34,.62); --edge:rgba(94,234,255,.16);
+  --txt:#dbeafe; --muted:#7b8cb0;
+  --accent:var(--cyan);
+  --glow:0 0 22px rgba(34,211,238,.20);
+  --font:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--txt); font-family:var(--font);
+  overflow:hidden; letter-spacing:.02em;
+  -webkit-font-smoothing:antialiased;
+}
+#bg{position:fixed;inset:0;z-index:0}
+.aurora{
+  position:fixed;inset:-20%;z-index:0;pointer-events:none;filter:blur(90px);opacity:.5;
+  background:
+    radial-gradient(38% 44% at 22% 28%, rgba(59,130,246,.22), transparent 70%),
+    radial-gradient(34% 40% at 78% 32%, rgba(168,85,247,.20), transparent 70%),
+    radial-gradient(46% 46% at 50% 78%, rgba(34,211,238,.16), transparent 70%);
+  animation:drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift{to{transform:translate3d(2%,-2%,0) scale(1.06)}}
+
+/* ================================ shell =================================== */
+.shell{position:relative;z-index:2;height:100vh;display:grid;
+  grid-template-rows:auto 1fr auto;gap:10px;padding:12px 16px 10px}
+.topbar{display:grid;grid-template-columns:300px 1fr 300px;align-items:center;gap:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;position:relative;flex:none}
+.mark svg{width:100%;height:100%;filter:drop-shadow(0 0 10px rgba(34,211,238,.7));
+  animation:markSpin 14s linear infinite}
+@keyframes markSpin{to{transform:rotateY(360deg)}}
+.brand h1{font-size:22px;font-weight:700;letter-spacing:.22em;
+  background:linear-gradient(90deg,#e0f2fe,#67e8f9 40%,#c4b5fd);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.brand p{font-size:8.5px;letter-spacing:.3em;color:var(--muted);margin-top:2px}
+
+.cmdwrap{position:relative}
+.cmd{width:100%;height:46px;border-radius:24px;border:1px solid var(--edge);
+  background:linear-gradient(180deg,rgba(12,20,44,.8),rgba(8,12,28,.8));
+  color:var(--txt);padding:0 58px;font-family:var(--font);font-size:13.5px;
+  outline:none;transition:.35s;backdrop-filter:blur(14px)}
+.cmd:focus{border-color:rgba(34,211,238,.6);box-shadow:0 0 26px rgba(34,211,238,.22)}
+.cmd::placeholder{color:#5b6b8c}
+.cmdicon{position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.35);cursor:pointer}
+.cmdicon:hover{background:rgba(34,211,238,.24)}
+.eq{position:absolute;right:16px;top:50%;transform:translateY(-50%);display:flex;gap:2px;align-items:flex-end;height:18px}
+.eq i{width:2px;background:linear-gradient(180deg,var(--cyan),var(--violet));border-radius:1px;
+  animation:eq .9s ease-in-out infinite}
+@keyframes eq{0%,100%{height:3px;opacity:.5}50%{height:15px;opacity:1}}
+
+.clock{text-align:right}
+.clock .t{font-size:30px;font-weight:300;letter-spacing:.04em;
+  background:linear-gradient(90deg,#67e8f9,#c4b5fd);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.clock .t span{font-size:13px;margin-left:5px;color:var(--muted);-webkit-text-fill-color:var(--muted)}
+.clock .d{font-size:10px;color:var(--muted);letter-spacing:.12em}
+.status{display:flex;align-items:center;gap:7px;justify-content:flex-end;margin-top:3px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 10px var(--green);animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.status b{font-size:9.5px;letter-spacing:.24em;color:var(--green);font-weight:600}
+
+/* ================================ body ==================================== */
+.body{display:grid;grid-template-columns:58px 305px 1fr 320px;gap:12px;min-height:0}
+.rail{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;
+  background:var(--panel);border:1px solid var(--edge);border-radius:18px;backdrop-filter:blur(16px)}
+.rail button{width:40px;height:40px;border-radius:12px;border:1px solid transparent;
+  background:transparent;color:#5f7398;cursor:pointer;display:grid;place-items:center;
+  transition:.3s;position:relative}
+.rail button:hover{color:var(--cyan);background:rgba(34,211,238,.08);transform:translateX(2px)}
+.rail button.on{color:var(--cyan);background:rgba(34,211,238,.14);
+  border-color:rgba(34,211,238,.4);box-shadow:var(--glow)}
+.rail button.on::before{content:'';position:absolute;left:-10px;top:26%;height:48%;width:2px;
+  border-radius:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.rail small{font-size:6.5px;letter-spacing:.1em;color:#4a5a7a;margin:-3px 0 5px}
+
+.col{display:flex;flex-direction:column;gap:11px;overflow-y:auto;min-height:0;padding-right:2px}
+.col::-webkit-scrollbar{width:4px}
+.col::-webkit-scrollbar-thumb{background:rgba(34,211,238,.24);border-radius:4px}
+
+/* =============================== panels =================================== */
+.panel{background:var(--panel);border:1px solid var(--edge);border-radius:16px;
+  padding:13px 15px;backdrop-filter:blur(18px);position:relative;overflow:hidden;
+  transition:transform .4s cubic-bezier(.2,.8,.2,1),border-color .4s,box-shadow .4s;
+  animation:rise .6s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+.panel:hover{transform:translateY(-3px);border-color:rgba(103,232,249,.42);
+  box-shadow:0 14px 40px rgba(0,0,0,.5),0 0 24px rgba(34,211,238,.14)}
+.panel::after{content:'';position:absolute;top:0;left:-60%;width:45%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(103,232,249,.75),transparent);
+  animation:sweep 7s ease-in-out infinite}
+@keyframes sweep{0%,72%{left:-60%}100%{left:120%}}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ph h3{font-size:9.5px;letter-spacing:.22em;color:#9fb6d9;font-weight:600}
+.ph .x{color:#3f5madd;font-size:12px;color:#40527a;cursor:pointer;transition:.3s}
+.ph .x:hover{color:var(--cyan);transform:rotate(90deg)}
+
+/* focus list */
+.task{display:flex;align-items:center;gap:9px;padding:6px 0;border-left:2px solid var(--cyan);
+  padding-left:9px;margin-bottom:5px;transition:.3s;cursor:default}
+.task:hover{padding-left:13px;background:linear-gradient(90deg,rgba(34,211,238,.08),transparent)}
+.task .ico{width:14px;height:14px;border-radius:50%;border:1.5px solid currentColor;flex:none;
+  display:grid;place-items:center;font-size:8px}
+.task .nm{flex:1;font-size:11.5px;color:#cfe0f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font-size:7.5px;letter-spacing:.12em;padding:2.5px 7px;border-radius:20px;font-weight:600;flex:none}
+.tag.prog{background:rgba(34,211,238,.16);color:#67e8f9;border:1px solid rgba(34,211,238,.35)}
+.tag.pend{background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.25)}
+.tag.due{background:rgba(248,113,113,.16);color:#fca5a5;border:1px solid rgba(248,113,113,.35)}
+
+/* progress ring + bars */
+.prog{display:flex;align-items:center;gap:15px}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .val b{font-size:23px;font-weight:600;color:#e0f2fe}
+.ring .val small{font-size:6.5px;letter-spacing:.14em;color:var(--muted);display:block}
+.bars{flex:1;display:flex;flex-direction:column;gap:8px}
+.bar b{font-size:8px;letter-spacing:.12em;color:var(--muted);display:flex;
+  justify-content:space-between;font-weight:500}
+.bar b i{font-style:normal;color:#bfdbfe}
+.track{height:3px;border-radius:3px;background:rgba(148,163,184,.14);margin-top:4px;overflow:hidden}
+.fill{height:100%;border-radius:3px;transition:width 1.4s cubic-bezier(.2,.8,.2,1);
+  background:linear-gradient(90deg,var(--cyan),var(--violet));box-shadow:0 0 10px rgba(34,211,238,.5)}
+
+/* streak */
+.streak{text-align:center}
+.flame{font-size:34px;line-height:1;animation:flame 2.6s ease-in-out infinite;
+  filter:drop-shadow(0 0 14px rgba(251,191,36,.6))}
+@keyframes flame{50%{transform:scale(1.12) rotate(-3deg)}}
+.streak .n{font-size:32px;font-weight:700;letter-spacing:.02em;
+  background:linear-gradient(90deg,#fbbf24,#f472b6);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.streak .lab{font-size:8px;letter-spacing:.22em;color:var(--muted)}
+.week{display:flex;justify-content:space-between;margin-top:10px}
+.week div{text-align:center;flex:1}
+.week span{font-size:8px;color:#4e5f80;display:block;margin-bottom:5px}
+.week i{width:8px;height:8px;border-radius:50%;display:inline-block;
+  background:rgba(148,163,184,.2)}
+.week i.on{background:var(--green);box-shadow:0 0 9px var(--green)}
+
+/* ============================== the core ================================== */
+.stage{position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:0;gap:8px}
+.hello{text-align:center;z-index:3}
+.hello small{font-size:12.5px;letter-spacing:.4em;color:#93a8cc;text-transform:uppercase}
+.hello h2{font-size:46px;font-weight:200;letter-spacing:.16em;margin-top:2px;
+  background:linear-gradient(90deg,#67e8f9,#c4b5fd 50%,#f0abfc);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:hue 9s ease-in-out infinite}
+@keyframes hue{50%{filter:hue-rotate(28deg)}}
+.hello p{font-size:11px;color:#7d90b4;margin-top:4px;letter-spacing:.06em}
+
+.core{position:relative;width:min(43vh,410px);aspect-ratio:1;display:grid;place-items:center;flex:none}
+.core canvas{position:absolute;inset:0;width:100%;height:100%}
+.rings{position:absolute;inset:0}
+.rings i{position:absolute;border-radius:50%;border:1px solid transparent;
+  border-top-color:var(--accent);border-right-color:rgba(168,85,247,.5);
+  animation:spin linear infinite;opacity:.85}
+.rings i:nth-child(1){inset:2%;animation-duration:17s}
+.rings i:nth-child(2){inset:12%;animation-duration:12s;animation-direction:reverse;
+  border-top-color:var(--magenta);border-right-color:rgba(34,211,238,.45)}
+.rings i:nth-child(3){inset:23%;animation-duration:9s;border-width:1.5px}
+.rings i:nth-child(4){inset:34%;animation-duration:22s;animation-direction:reverse;
+  border-top-color:rgba(59,130,246,.7)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.halo{position:absolute;inset:16%;border-radius:50%;
+  background:radial-gradient(circle,rgba(34,211,238,.22),rgba(168,85,247,.10) 55%,transparent 72%);
+  animation:breathe 4.6s ease-in-out infinite;filter:blur(6px)}
+@keyframes breathe{50%{transform:scale(1.12);opacity:.75}}
+.scan{position:absolute;inset:6%;border-radius:50%;overflow:hidden;opacity:.5;pointer-events:none}
+.scan::before{content:'';position:absolute;left:0;right:0;height:34%;
+  background:linear-gradient(180deg,transparent,rgba(103,232,249,.16),transparent);
+  animation:scanmove 5.2s ease-in-out infinite}
+@keyframes scanmove{0%,100%{top:-34%}50%{top:100%}}
+.glyph{position:relative;z-index:3;width:34%;filter:drop-shadow(0 0 26px rgba(34,211,238,.85));
+  animation:float 6.5s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-9px) scale(1.03)}}
+.state{position:absolute;bottom:-4px;font-size:8.5px;letter-spacing:.34em;
+  color:var(--accent);text-transform:uppercase;text-shadow:0 0 12px currentColor}
+
+/* quick actions */
+.qa{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;width:100%}
+.qa button{background:linear-gradient(180deg,rgba(15,23,50,.75),rgba(9,13,32,.75));
+  border:1px solid var(--edge);border-radius:13px;padding:10px 4px;color:#9fb6d9;
+  cursor:pointer;transition:.32s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
+  align-items:center;gap:5px;font-size:7.5px;letter-spacing:.1em;font-family:var(--font)}
+.qa button:hover{transform:translateY(-4px);color:var(--cyan);
+  border-color:rgba(34,211,238,.5);box-shadow:0 10px 26px rgba(0,0,0,.45),0 0 20px rgba(34,211,238,.18)}
+.qa button:active{transform:translateY(-1px) scale(.97)}
+.quote{text-align:center;font-size:12.5px;font-style:italic;color:#a8bcdd;padding:9px 20px;
+  border-left:2px solid rgba(34,211,238,.5);border-right:2px solid rgba(168,85,247,.5);
+  background:linear-gradient(90deg,rgba(34,211,238,.05),transparent,rgba(168,85,247,.05));
+  border-radius:10px}
+.quote b{display:block;font-style:normal;font-size:7.5px;letter-spacing:.26em;
+  color:var(--muted);margin-top:5px;font-weight:500}
+
+/* right column widgets */
+.gauge{display:flex;align-items:center;gap:14px}
+.metrics{flex:1;display:flex;flex-direction:column;gap:6px}
+.metric{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.1em;color:var(--muted)}
+.metric b{margin-left:auto;color:#cfe0f7;font-size:10.5px;font-weight:600}
+.metric .ok{color:var(--green)}
+.brainrow{display:flex;justify-content:space-between;font-size:9.5px;padding:4px 0;
+  border-bottom:1px solid rgba(148,163,184,.07)}
+.brainrow span{color:var(--muted);letter-spacing:.1em}
+.brainrow b{color:#bfdbfe;font-weight:500}
+.mem{display:flex;align-items:center;gap:13px}
+.brainimg{font-size:34px;filter:drop-shadow(0 0 14px rgba(34,211,238,.6));
+  animation:breathe 3.4s ease-in-out infinite}
+.memn{font-size:29px;font-weight:600;color:#e0f2fe;line-height:1}
+.memn small{display:block;font-size:8px;letter-spacing:.16em;color:var(--muted);font-weight:400;margin-top:2px}
+.pill{width:100%;margin-top:9px;padding:7px;border-radius:10px;border:1px solid rgba(34,211,238,.32);
+  background:rgba(34,211,238,.09);color:#67e8f9;font-size:8.5px;letter-spacing:.16em;
+  cursor:pointer;transition:.3s;font-family:var(--font)}
+.pill:hover{background:rgba(34,211,238,.2);box-shadow:var(--glow)}
+.proj{margin-bottom:9px}
+.proj .top{display:flex;align-items:center;gap:7px;font-size:10px;color:#cfe0f7;margin-bottom:4px}
+.proj .top b{margin-left:auto;color:#67e8f9;font-size:9.5px}
+.ev{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(148,163,184,.07);
+  transition:.3s;cursor:default}
+.ev:hover{transform:translateX(3px)}
+.ev .dt{text-align:center;flex:none;width:26px}
+.ev .dt b{display:block;font-size:12px;color:#e0f2fe;line-height:1}
+.ev .dt span{font-size:6.5px;letter-spacing:.12em;color:var(--red)}
+.ev .info{flex:1;min-width:0}
+.ev .info b{display:block;font-size:10px;color:#cfe0f7;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.ev .info span{font-size:8px;color:var(--muted)}
+.caps{display:flex;flex-wrap:wrap;gap:5px}
+.cap{font-size:7.5px;letter-spacing:.08em;padding:4px 8px;border-radius:20px;
+  border:1px solid rgba(34,211,238,.24);background:rgba(34,211,238,.07);color:#8fd8ea;
+  transition:.3s;cursor:default}
+.cap:hover{background:rgba(34,211,238,.2);transform:translateY(-2px);color:#c9f3fb}
+.cap.gate{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:#fcd34d}
+.hs{display:flex;justify-content:space-between;font-size:8.5px;padding:3px 0;color:var(--muted)}
+.hs b{color:#bfdbfe}
+
+/* bottom bar */
+.bottom{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.ver{font-size:8.5px;letter-spacing:.2em;color:#3f4f70}
+.dock{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--edge);
+  border-radius:22px;padding:6px 16px;backdrop-filter:blur(16px)}
+.dock button{width:34px;height:34px;border-radius:11px;border:none;background:transparent;
+  color:#5f7398;cursor:pointer;transition:.3s;display:grid;place-items:center}
+.dock button:hover{color:var(--cyan);background:rgba(34,211,238,.1);transform:translateY(-3px)}
+.dock .mid{width:44px;height:44px;background:radial-gradient(circle,rgba(34,211,238,.28),transparent 70%);
+  color:var(--cyan);box-shadow:0 0 22px rgba(34,211,238,.35)}
+.vu{display:flex;gap:2px;align-items:flex-end;height:20px}
+.vu i{width:2.5px;background:linear-gradient(180deg,var(--cyan),var(--violet));border-radius:1px;
+  animation:eq 1.1s ease-in-out infinite}
+
+/* toasts */
+.toasts{position:fixed;right:18px;bottom:74px;z-index:60;display:flex;flex-direction:column;
+  gap:8px;pointer-events:none}
+.toast{background:rgba(10,16,34,.9);border:1px solid rgba(34,211,238,.42);border-radius:13px;
+  padding:11px 15px;min-width:240px;max-width:330px;backdrop-filter:blur(18px);
+  box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 24px rgba(34,211,238,.16);
+  animation:slidein .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes slidein{from{opacity:0;transform:translateX(40px)}}
+.toast.out{animation:slideout .4s forwards}
+@keyframes slideout{to{opacity:0;transform:translateX(40px)}}
+.toast b{font-size:9px;letter-spacing:.18em;color:var(--cyan);display:block;margin-bottom:3px}
+.toast p{font-size:11px;color:#cfe0f7;line-height:1.45;white-space:pre-wrap}
+.muted{color:var(--muted);font-size:10px;padding:3px 0}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas><div class="aurora"></div>
+
+<div class="shell">
+  <!-- ================================ top ================================ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 48 48" fill="none">
+          <path d="M24 3 44 17 24 45 4 17Z" stroke="#67e8f9" stroke-width="1.4" fill="rgba(34,211,238,.10)"/>
+          <path d="M24 3 24 45M4 17 44 17M24 3 14 45M24 3 34 45" stroke="#a855f7" stroke-width=".7" opacity=".8"/>
+        </svg>
+      </div>
+      <div><h1>ORIGAMI</h1><p>YOUR PERSONAL AI COMPANION</p></div>
+    </div>
+
+    <div class="cmdwrap">
+      <div class="cmdicon" id="mic" title="Voice (coming soon)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2">
+          <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>
+      </div>
+      <input class="cmd" id="cmd" autocomplete="off"
+             placeholder="What shall we build today, Charan?"/>
+      <div class="eq" id="eq"></div>
+    </div>
+
+    <div class="clock">
+      <div class="t" id="clock">--:--<span id="mer">PM</span></div>
+      <div class="d" id="date">—</div>
+      <div class="status"><span class="dot"></span><b id="statusTxt">ONLINE</b></div>
+    </div>
+  </header>
+
+  <!-- ================================ body =============================== -->
+  <div class="body">
+    <nav class="rail" id="rail"></nav>
+
+    <!-- left column -->
+    <section class="col">
+      <div class="panel" style="animation-delay:.05s">
+        <div class="ph"><h3>TODAY'S FOCUS</h3><span class="x">✕</span></div>
+        <div id="focus"><div class="muted">Loading…</div></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.1s">
+        <div class="ph"><h3>PROGRESS OVERVIEW</h3><span class="x">✕</span></div>
+        <div class="prog">
+          <div class="ring">
+            <svg width="96" height="96">
+              <circle cx="48" cy="48" r="40" stroke="rgba(148,163,184,.13)" stroke-width="7" fill="none"/>
+              <circle id="ringArc" cx="48" cy="48" r="40" stroke="url(#g1)" stroke-width="7" fill="none"
+                      stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"
+                      style="transition:stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)"/>
+              <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/>
+              </linearGradient></defs>
+            </svg>
+            <div class="val"><div><b id="progPct">0%</b><small>OVERALL</small></div></div>
+          </div>
+          <div class="bars" id="bars"></div>
+        </div>
+      </div>
+
+      <div class="panel streak" style="animation-delay:.15s">
+        <div class="ph"><h3>STREAK &amp; CONSISTENCY</h3><span class="x">✕</span></div>
+        <div class="flame">🔥</div>
+        <div class="n" id="streakN">0</div>
+        <div class="lab">DAYS — KEEP IT UP</div>
+        <div class="week" id="week"></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.2s">
+        <div class="ph"><h3>MEMORY TIMELINE</h3><span class="x">✕</span></div>
+        <div id="timeline"><div class="muted">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- center stage -->
+    <section class="stage">
+      <div class="hello">
+        <small id="greet">GOOD EVENING,</small>
+        <h2 id="who">CHARAN</h2>
+        <p>Let's turn your thoughts into reality.</p>
+      </div>
+
+      <div class="core" id="core">
+        <canvas id="orb"></canvas>
+        <div class="halo"></div>
+        <div class="rings"><i></i><i></i><i></i><i></i></div>
+        <div class="scan"></div>
+        <svg class="glyph" viewBox="0 0 48 48" fill="none">
+          <path d="M24 4 43 18 24 44 5 18Z" stroke="#a5f3fc" stroke-width="1.2" fill="rgba(34,211,238,.16)"/>
+          <path d="M24 4 24 44M5 18 43 18" stroke="#e879f9" stroke-width=".7"/>
+        </svg>
+        <div class="state" id="coreState">IDLE</div>
+      </div>
+
+      <div class="qa" id="qa"></div>
+      <div class="quote">"The best way to predict the future is to create it."<b>— ORIGAMI</b></div>
+    </section>
+
+    <!-- right column -->
+    <section class="col">
+      <div class="panel" style="animation-delay:.05s">
+        <div class="ph"><h3>SYSTEM STATUS</h3><span class="x">✕</span></div>
+        <div class="gauge">
+          <div class="ring" style="width:78px;height:78px">
+            <svg width="78" height="78">
+              <circle cx="39" cy="39" r="32" stroke="rgba(148,163,184,.13)" stroke-width="6" fill="none"/>
+              <circle id="hArc" cx="39" cy="39" r="32" stroke="url(#g1)" stroke-width="6" fill="none"
+                      stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201"
+                      style="transition:stroke-dashoffset 1.6s"/>
+            </svg>
+            <div class="val"><div><b id="hPct" style="font-size:17px">—</b><small>HEALTH</small></div></div>
+          </div>
+          <div class="metrics" id="sysMetrics"></div>
+        </div>
+        <div style="margin-top:9px" id="healthScores"></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.1s">
+        <div class="ph"><h3>BRAIN MANAGER</h3><span class="x">✕</span></div>
+        <div id="brain"><div class="muted">Loading…</div></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.15s">
+        <div class="ph"><h3>MEMORY BANK</h3><span class="x">✕</span></div>
+        <div class="mem">
+          <div class="brainimg">🧠</div>
+          <div><div class="memn" id="memN">0<small>MEMORIES STORED</small></div></div>
+        </div>
+        <button class="pill" onclick="send('what do you know about me')">EXPLORE MEMORIES →</button>
+      </div>
+
+      <div class="panel" style="animation-delay:.2s">
+        <div class="ph"><h3>ACTIVE GOALS</h3><span class="x">✕</span></div>
+        <div id="goals"><div class="muted">Loading…</div></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.25s">
+        <div class="ph"><h3>CODEX — LEARNED CODEBASES</h3><span class="x">✕</span></div>
+        <div id="codex"><div class="muted">Loading…</div></div>
+      </div>
+
+      <div class="panel" style="animation-delay:.3s">
+        <div class="ph"><h3>CAPABILITY REGISTRY</h3><span class="x">✕</span></div>
+        <div class="caps" id="caps"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- =============================== bottom ============================== -->
+  <footer class="bottom">
+    <span class="ver">ORIGAMI v1.0.0 · <span id="capCount">0</span> CAPABILITIES</span>
+    <div class="dock" id="dock"></div>
+    <div class="vu" id="vu"></div>
+  </footer>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ========================= living background canvas ======================= */
+const bg = document.getElementById('bg'), bgx = bg.getContext('2d');
+let W, H, parts = [];
+const LOW = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function resize(){
+  W = bg.width = innerWidth * devicePixelRatio; H = bg.height = innerHeight * devicePixelRatio;
+  bg.style.width = innerWidth+'px'; bg.style.height = innerHeight+'px';
+  const n = LOW ? 0 : Math.min(120, Math.floor(innerWidth/14));
+  parts = Array.from({length:n}, () => ({
+    x:Math.random()*W, y:Math.random()*H, r:(Math.random()*1.5+.4)*devicePixelRatio,
+    vx:(Math.random()-.5)*.16*devicePixelRatio, vy:(Math.random()-.5)*.16*devicePixelRatio,
+    a:Math.random()*.4+.12, h:Math.random()<.5?190:280
+  }));
+}
+addEventListener('resize', resize); resize();
+function drawBg(){
+  bgx.clearRect(0,0,W,H);
+  for(const p of parts){
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=W; if(p.x>W)p.x=0; if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+    bgx.beginPath(); bgx.arc(p.x,p.y,p.r,0,6.283);
+    bgx.fillStyle=`hsla(${p.h},90%,70%,${p.a})`; bgx.fill();
+  }
+  requestAnimationFrame(drawBg);
+}
+if(!LOW) drawBg();
+
+/* ============================== the core orb ============================== */
+const orb = document.getElementById('orb'), ox = orb.getContext('2d');
+let OW, OH, frags = [];
+function orbResize(){
+  const s = document.getElementById('core').clientWidth;
+  OW = orb.width = s*devicePixelRatio; OH = orb.height = s*devicePixelRatio;
+  orb.style.width = s+'px'; orb.style.height = s+'px';
+  frags = Array.from({length: LOW?0:34}, (_,i) => ({
+    a: Math.random()*6.283, r: (.22+Math.random()*.26)*OW,
+    sp: (.002+Math.random()*.006)*(Math.random()<.5?-1:1),
+    sz: (Math.random()*1.7+.6)*devicePixelRatio, h: Math.random()<.5?190:290
+  }));
+}
+addEventListener('resize', orbResize); setTimeout(orbResize, 60);
+
+/* AI states — each has its own colour + energy */
+const STATES = {
+  idle:      {c:'#22d3ee', h:190, label:'IDLE',       speed:1},
+  listening: {c:'#34d399', h:155, label:'LISTENING',  speed:1.5},
+  thinking:  {c:'#a855f7', h:280, label:'THINKING',   speed:2.4},
+  planning:  {c:'#3b82f6', h:220, label:'PLANNING',   speed:1.9},
+  executing: {c:'#fbbf24', h:45,  label:'EXECUTING',  speed:2.8},
+  monitoring:{c:'#e879f9', h:300, label:'MONITORING', speed:1.2},
+  researching:{c:'#67e8f9',h:186, label:'RESEARCHING',speed:2.1},
+  speaking:  {c:'#f0abfc', h:310, label:'SPEAKING',   speed:2.0},
+  error:     {c:'#f87171', h:0,   label:'ERROR',      speed:3.2},
+  sleeping:  {c:'#475569', h:215, label:'SLEEPING',   speed:.35},
+  offline:   {c:'#64748b', h:215, label:'OFFLINE',    speed:.25},
+};
+let state = 'idle', t = 0;
+function setState(s, revert){
+  state = s; const st = STATES[s];
+  document.documentElement.style.setProperty('--accent', st.c);
+  document.getElementById('coreState').textContent = st.label;
+  if(revert) setTimeout(()=>setState('idle'), revert);
+}
+function drawOrb(){
+  t += 0.016 * STATES[state].speed;
+  ox.clearRect(0,0,OW,OH);
+  const cx=OW/2, cy=OH/2;
+  // orbiting light fragments
+  for(const f of frags){
+    f.a += f.sp * STATES[state].speed;
+    const wob = Math.sin(t*1.4 + f.r) * OW*0.02;
+    const x = cx + Math.cos(f.a)*(f.r+wob), y = cy + Math.sin(f.a)*(f.r+wob)*.62;
+    ox.beginPath(); ox.arc(x,y,f.sz,0,6.283);
+    ox.fillStyle = `hsla(${STATES[state].h + (f.h-240)*.25},95%,72%,.8)`;
+    ox.shadowBlur = 10*devicePixelRatio; ox.shadowColor = STATES[state].c;
+    ox.fill(); ox.shadowBlur = 0;
+  }
+  // neural wave rings
+  for(let k=0;k<3;k++){
+    const pr = ((t*0.22 + k/3) % 1);
+    ox.beginPath(); ox.arc(cx,cy,pr*OW*0.47,0,6.283);
+    ox.strokeStyle = `hsla(${STATES[state].h},95%,68%,${(1-pr)*0.28})`;
+    ox.lineWidth = 1.2*devicePixelRatio; ox.stroke();
+  }
+  requestAnimationFrame(drawOrb);
+}
+if(!LOW) drawOrb();
+
+/* =============================== chrome bits ============================== */
+const ICONS = {
+  home:'M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  exec:'M12 2 3 7v10l9 5 9-5V7z M12 12l9-5M12 12v10M12 12 3 7',
+  proj:'M3 7h6l2 2h10v10H3z', mem:'M4 4h16v6H4z M4 14h16v6H4z',
+  codex:'M8 6 3 12l5 6M16 6l5 6-5 6', research:'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM21 21l-5-5',
+  monitor:'M4 12h3l2-6 3 12 2-8 2 4h4', settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3'
+};
+const RAIL = [['home','HOME','my brief'],['exec','EXEC','my goals'],['proj','PROJ','my projects'],
+  ['mem','MEM','what do you know about me'],['codex','CODEX','my codebases'],
+  ['research','RSRCH','search for AI news'],['monitor','MON','my reminders'],
+  ['settings','SET','health check']];
+document.getElementById('rail').innerHTML = RAIL.map(([k,l,c],i)=>
+  `<button class="${i===0?'on':''}" data-cmd="${c}" title="${c}">
+     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[k]}"/></svg>
+   </button><small>${l}</small>`).join('');
+
+const QA = [['NEW TASK','remind me to '],['FOCUS','my brief'],['CODE','my codebases'],
+  ['VOICE','__voice'],['RESEARCH','search for '],['HEALTH','health check']];
+const QICONS=['M12 5v14M5 12h14','M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 7v5l3 3',
+  'M8 6 3 12l5 6M16 6l5 6-5 6','M9 2h6v12a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 21v-3',
+  'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM21 21l-5-5','M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z'];
+document.getElementById('qa').innerHTML = QA.map(([l,c],i)=>
+  `<button data-cmd="${c}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="${QICONS[i]}"/></svg>${l}</button>`).join('');
+
+document.getElementById('dock').innerHTML =
+  [['M3 11 12 3l9 8v9h-6v-6H9v6H3z','my brief'],['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z','hello'],
+   ['','__core'],['M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z','my projects'],
+   ['M4 4h16v16H4zM8 8h8M8 12h8M8 16h5','my reminders']].map(([d,c],i)=>
+  i===2 ? `<button class="mid" data-cmd="${c}">🧠</button>`
+        : `<button data-cmd="${c}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="${d}"/></svg></button>`).join('');
+
+document.getElementById('eq').innerHTML = Array.from({length:9},(_,i)=>
+  `<i style="animation-delay:${i*.09}s"></i>`).join('');
+document.getElementById('vu').innerHTML = Array.from({length:22},(_,i)=>
+  `<i style="animation-delay:${i*.06}s;height:${4+Math.random()*13}px"></i>`).join('');
+
+/* =============================== toasts =================================== */
+function toast(title, msg){
+  const el = document.createElement('div');
+  el.className='toast'; el.innerHTML=`<b>${title}</b><p>${msg}</p>`;
+  document.getElementById('toasts').append(el);
+  setTimeout(()=>{el.classList.add('out'); setTimeout(()=>el.remove(),400)}, 6500);
+}
+
+/* =========================== command execution ============================ */
+async function send(text){
+  if(!text || !text.trim()) return;
+  const t = text.trim();
+  setState(/search|research/.test(t) ? 'researching'
+          : /scan|code|health/.test(t) ? 'thinking'
+          : /remind|goal/.test(t) ? 'planning' : 'executing');
+  toast('COMMAND', t);
+  try{
+    const r = await fetch('/api/command',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:t})});
+    const d = await r.json();
+    setState('speaking'); setTimeout(()=>setState('idle'), 2200);
+    toast(d.tool ? d.tool.toUpperCase() : 'ORIGAMI', d.summary || '—');
+    if(d.learned?.length) toast('MEMORY SAVED', d.learned.join('; '));
+    refresh();
+  }catch(e){ setState('error', 2600); toast('ERROR', String(e)); }
+}
+document.getElementById('cmd').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ send(e.target.value); e.target.value=''; }
+});
+document.getElementById('cmd').addEventListener('focus', ()=>setState('listening'));
+document.getElementById('cmd').addEventListener('blur', ()=>state==='listening'&&setState('idle'));
+document.getElementById('mic').onclick = ()=>{ setState('listening',2600);
+  toast('VOICE','Wake-word engine not installed yet — UI is ready for it.'); };
+
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-cmd]'); if(!b) return;
+  const c = b.dataset.cmd;
+  if(b.parentElement.id==='rail'){ document.querySelectorAll('#rail button')
+      .forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+  if(c==='__voice'){ document.getElementById('mic').click(); return; }
+  if(c==='__core'){ setState('monitoring',3000); toast('CORE','All systems operational.'); return; }
+  if(c.endsWith(' ')){ const i=document.getElementById('cmd'); i.focus(); i.value=c; return; }
+  send(c);
+});
+addEventListener('keydown', e=>{
+  if(e.key==='/' && document.activeElement.id!=='cmd'){ e.preventDefault(); document.getElementById('cmd').focus(); }
+  if(e.key==='Escape') document.getElementById('cmd').blur();
+});
+
+/* ============================== live state ================================ */
+const esc = s => String(s??'').replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+function render(d){
+  document.getElementById('clock').firstChild.textContent = d.time;
+  document.getElementById('mer').textContent = d.meridiem;
+  document.getElementById('date').textContent = d.date;
+  document.getElementById('greet').textContent = d.greeting + ',';
+  document.getElementById('who').textContent = (d.user||'CHARAN').toUpperCase();
+
+  // focus / reminders
+  const f = d.monitoring.focus;
+  document.getElementById('focus').innerHTML = f.length ? f.map(t=>`
+    <div class="task" style="border-left-color:${t.overdue?'var(--red)':t.important?'var(--amber)':'var(--cyan)'}">
+      <span class="ico" style="color:${t.overdue?'var(--red)':'var(--cyan)'}">${t.important?'★':'○'}</span>
+      <span class="nm">${esc(t.text)}</span>
+      <span class="tag ${t.overdue?'due':'prog'}">${t.overdue?'DUE':esc(t.due)}</span>
+    </div>`).join('')
+    : `<div class="muted">Nothing scheduled — say “remind me to …”</div>`;
+
+  // streak + week
+  document.getElementById('streakN').textContent = d.monitoring.streak;
+  document.getElementById('week').innerHTML = ['S','M','T','W','T','F','S']
+    .map((n,i)=>`<div><span>${n}</span><i class="${d.monitoring.week[i]?'on':''}"></i></div>`).join('');
+
+  // progress
+  const goals = d.goals || [];
+  const gAvg = goals.length ? Math.round(goals.reduce((a,g)=>a+g.percent,0)/goals.length) : 0;
+  const health = d.health?.overall || 0;
+  const memPct = Math.min(100, Math.round((d.memory.count/40)*100));
+  const overall = Math.round((gAvg + health + memPct)/3);
+  document.getElementById('progPct').textContent = overall+'%';
+  document.getElementById('ringArc').style.strokeDashoffset = 251 - 251*overall/100;
+  document.getElementById('bars').innerHTML = [
+    ['GOALS',gAvg],['HEALTH',Math.round(health)],['KNOWLEDGE',memPct],
+    ['CONSISTENCY',Math.min(100,d.monitoring.streak*10)]
+  ].map(([l,v])=>`<div class="bar"><b>${l}<i>${v}%</i></b>
+      <div class="track"><div class="fill" style="width:${v}%"></div></div></div>`).join('');
+
+  // memory
+  document.getElementById('memN').firstChild.textContent = d.memory.count;
+  document.getElementById('timeline').innerHTML = d.memory.recent.length
+    ? d.memory.recent.map(m=>`<div class="ev"><div class="info">
+        <b>${esc(m.text)}</b><span>${esc(m.when)} · ${esc(m.kind)}</span></div></div>`).join('')
+    : `<div class="muted">No memories yet.</div>`;
+
+  // goals
+  document.getElementById('goals').innerHTML = goals.length ? goals.map(g=>`
+    <div class="proj"><div class="top"><span>🎯</span>${esc(g.title)}<b>${g.percent}%</b></div>
+      <div class="track"><div class="fill" style="width:${g.percent}%"></div></div>
+      <div class="muted" style="font-size:8.5px">next: ${esc(g.next)}</div></div>`).join('')
+    : `<div class="muted">No active goals — say “help me &lt;goal&gt;”.</div>`;
+
+  // codex
+  document.getElementById('codex').innerHTML = d.codebases.length ? d.codebases.map(c=>`
+    <div class="ev"><div class="info"><b>📦 ${esc(c.name)}</b>
+      <span>${esc(c.languages.join(' · ')||'—')} · ${c.files} files</span></div></div>`).join('')
+    : `<div class="muted">No codebases learned — say “scan &lt;project&gt;”.</div>`;
+
+  // brain
+  const b = d.brain;
+  document.getElementById('brain').innerHTML = `
+    <div class="brainrow"><span>STATUS</span><b style="color:${b.online?'var(--green)':'var(--amber)'}">
+      ${b.online?'ONLINE':'ECHO (no model)'}</b></div>
+    <div class="brainrow"><span>PROVIDER</span><b>${esc(b.provider)}</b></div>
+    <div class="brainrow"><span>MODEL</span><b>${esc(b.model)}</b></div>
+    <div class="brainrow"><span>MODE</span><b>${esc(b.mode)}</b></div>
+    ${b.ram_free!=null?`<div class="brainrow"><span>RAM FREE</span><b>${b.ram_free} GB</b></div>`:''}`;
+  document.getElementById('statusTxt').textContent = b.online ? 'ONLINE' : 'ECHO MODE';
+  if(!b.online && state==='idle') setState('sleeping');
+  if(b.online && state==='sleeping') setState('idle');
+
+  // system + health
+  const hs = d.health?.scores || {};
+  document.getElementById('hPct').textContent = health ? health+'%' : '—';
+  document.getElementById('hArc').style.strokeDashoffset = 201 - 201*health/100;
+  document.getElementById('sysMetrics').innerHTML = `
+    <div class="metric">◈ CPU <b>${b.cpu!=null?Math.round(b.cpu)+'%':'—'}</b></div>
+    <div class="metric">◈ RAM FREE <b>${b.ram_free!=null?b.ram_free+' GB':'—'}</b></div>
+    <div class="metric">◈ BATTERY <b>${b.battery!=null?Math.round(b.battery)+'%':'—'}</b></div>
+    <div class="metric ok">● ${d.health?.criticals?.length?d.health.criticals.length+' CRITICAL':'ALL SYSTEMS OPERATIONAL'}</div>`;
+  document.getElementById('healthScores').innerHTML = Object.entries(hs).slice(0,8)
+    .map(([k,v])=>`<div class="hs"><span>${k.toUpperCase()}</span><b>${v}%</b></div>`).join('');
+
+  // capability registry (auto-populated — future modules appear here)
+  document.getElementById('caps').innerHTML = (d.capabilities||[]).map(c=>
+    `<span class="cap ${c.risk!=='safe'?'gate':''}" title="${c.tools} tools · ${c.risk}">
+       ${esc(c.name)} <b style="opacity:.6">${c.tools}</b></span>`).join('');
+  document.getElementById('capCount').textContent = (d.capabilities||[]).length;
+}
+
+let lastMem = null;
+async function refresh(){
+  try{
+    const d = await (await fetch('/api/state')).json();
+    if(lastMem!==null && d.memory.count>lastMem) toast('MEMORY SAVED', 'New knowledge stored.');
+    lastMem = d.memory.count;
+    render(d);
+  }catch(e){ setState('offline'); document.getElementById('statusTxt').textContent='OFFLINE'; }
+}
+refresh(); setInterval(refresh, 5000);
+setTimeout(()=>toast('ORIGAMI ONLINE','All engines nominal. Press / to command me.'), 900);
+</script>
+</body>
+</html>
