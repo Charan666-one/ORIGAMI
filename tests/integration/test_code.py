@@ -15,13 +15,8 @@ class FakeBrain(LLMEngine):
         return True
 
     async def complete(self, prompt, task=Task.REASON, **kwargs):
-        return LLMResponse(text="ok")
-
-    async def generate(self, instruction, **kwargs):
-        return "A FastAPI + React app with a backend and frontend."
-
-    async def reason(self, prompt, **kwargs):
-        return "It uses FastAPI for the backend."
+        # the code skill uses complete() for both explain and ask
+        return LLMResponse(text="A FastAPI + React app with a backend and frontend.")
 
 
 def _sample_repo(tmp_path):

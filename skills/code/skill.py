@@ -20,6 +20,7 @@ from core.persist import read_text
 from core.schemas.tool import Risk, ToolSpec
 from engines.knowledge.codebases import CodebaseStore
 from engines.knowledge.scanner import scan_codebase
+from engines.reasoning.llm import Task
 from skills.base import Skill
 
 
@@ -80,35 +81,46 @@ class CodeSkill(Skill):
             return f"Couldn't scan: {exc}"
 
         name = Path(path).name
-        summary = await self._explain_profile(name, profile)
-        self.store.save(name, {
+        # Save the structure FIRST — resilient: a slow/timed-out model never loses the scan.
+        record = {
             "path": profile["path"], "languages": profile["languages"],
             "structure": profile["structure"], "total_files": profile["total_files"],
-            "summary": summary,
-        })
-        if self.memory is not None and summary:
-            try:
-                self.memory.add(f"My codebase '{name}': {summary[:200]}", important=True)
-            except Exception:
-                pass
+            "summary": "",
+        }
+        self.store.save(name, record)
+
+        summary = await self._explain_profile(name, profile)
+        if summary:
+            record["summary"] = summary
+            self.store.save(name, record)
+            if self.memory is not None:
+                try:
+                    self.memory.add(f"My codebase '{name}': {summary[:200]}", important=True)
+                except Exception:
+                    pass
 
         langs = ", ".join(f"{k} ({v})" for k, v in profile["languages"].items()) or "—"
         head = (f"🔍 Scanned {name} — {profile['total_files']} files\n"
                 f"Languages: {langs}\nStructure: {', '.join(profile['structure']) or '—'}")
-        return f"{head}\n\n{summary}" if summary else (
-            head + "\n(Install Ollama + a model for a written explanation; structure saved.)")
+        if summary:
+            return f"{head}\n\n{summary}"
+        return head + ("\n(Structure saved. Start `ollama serve` for a written "
+                       "explanation — then 'explain the codebase " + name + "'.)")
 
     async def _explain_profile(self, name: str, profile: dict) -> str:
         if self.brain is None or not self.brain.can_think():
             return ""
-        keyfiles = "\n".join(f"### {f}\n{c[:800]}" for f, c in profile["key_files"].items())
+        # trim the prompt (3 files, short snippets) and cap output -> fast + bounded
+        items = list(profile["key_files"].items())[:3]
+        keyfiles = "\n".join(f"### {f}\n{c[:500]}" for f, c in items)
         prompt = (
-            f"Explain the codebase '{name}' concisely for its owner: what it is, its "
-            f"tech stack, how it's structured, and the entry points. Base it ONLY on:\n"
+            f"In 4-6 sentences, explain the codebase '{name}': what it is, its tech "
+            f"stack, structure, and entry points. Base it ONLY on:\n"
             f"Languages: {profile['languages']}\nTop-level: {profile['structure']}\n"
             f"Key files:\n{keyfiles}")
-        try:
-            return await self.brain.generate(prompt)
+        try:  # task=CODE via complete() -> no profile injection; capped length
+            resp = await self.brain.complete(prompt, task=Task.CODE, max_tokens=280)
+            return resp.text.strip()
         except Exception:
             return ""
 
@@ -128,10 +140,11 @@ class CodeSkill(Skill):
         question = raw.split(":", 1)[1].strip() if ":" in raw else raw
         if self.brain is None or not self.brain.can_think():
             return entry.get("summary", "Scan it first, then install a model to ask questions.")
-        answer = await self.brain.reason(
+        resp = await self.brain.complete(
             f"About the codebase '{name}': {entry.get('summary', '')}\n\n"
-            f"Question: {question}\nAnswer concisely based on what's known.")
-        return answer
+            f"Question: {question}\nAnswer concisely based on what's known.",
+            task=Task.CODE, max_tokens=280)
+        return resp.text.strip()
 
     def _list(self) -> str:
         names = self.store.names()

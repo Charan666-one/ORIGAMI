@@ -41,10 +41,11 @@ class OllamaProvider(LLMEngine):
     name = "ollama"
     is_cloud = False
 
-    def __init__(self, host: str | None = None, timeout: int = 120,
+    def __init__(self, host: str | None = None, timeout: int | None = None,
                  keep_alive: str = "10m") -> None:
         self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
-        self.timeout = timeout
+        # hard cap per call so a hung/thrashing model can never wait forever
+        self.timeout = timeout or int(os.getenv("ORIGAMI_LLM_TIMEOUT", "60"))
         self.keep_alive = keep_alive  # keep the model warm in RAM between commands
         self._installed: List[str] | None = None
 
@@ -102,7 +103,15 @@ class OllamaProvider(LLMEngine):
         if _is_thinking_model(model):
             payload["think"] = False  # skip slow hidden reasoning on 8GB
 
-        resp = requests.post(f"{self.host}/api/generate", json=payload, timeout=self.timeout)
-        resp.raise_for_status()
+        try:
+            # (connect, read): fail fast if the server is down; cap total read time
+            resp = requests.post(f"{self.host}/api/generate", json=payload,
+                                 timeout=(5, self.timeout))
+            resp.raise_for_status()
+        except requests.exceptions.Timeout as exc:
+            raise RuntimeError(
+                f"The local model took over {self.timeout}s — stopped waiting. Try a "
+                f"shorter request, a smaller/faster model, or raise ORIGAMI_LLM_TIMEOUT."
+            ) from exc
         data = resp.json()
         return LLMResponse(text=data.get("response", "").strip(), model=model, raw=data)
