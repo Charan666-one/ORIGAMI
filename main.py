@@ -81,7 +81,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, YouTubeSkill())
     register_skill(registry, CalendarSkill())
     register_skill(registry, ProfileSkill(profile=profile))
-    register_skill(registry, GitHubSkill())
+    register_skill(registry, GitHubSkill(brain=brain))
     register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))

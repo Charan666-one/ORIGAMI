@@ -11,6 +11,7 @@ import re
 from typing import Any, List
 
 from core.schemas.tool import Risk, ToolSpec
+from engines.reasoning.llm import Task
 from skills.base import Skill
 
 # owner/repo or a bare repo name in the text
@@ -19,8 +20,9 @@ _BARE = re.compile(r"\b(?:in|for|on|repo)\s+([\w.-]{2,})", re.IGNORECASE)
 
 
 class GitHubSkill(Skill):
-    def __init__(self, client: Any = None) -> None:
+    def __init__(self, client: Any = None, brain: Any = None) -> None:
         self._client = client
+        self.brain = brain
         self._me = None
 
     @property
@@ -54,6 +56,14 @@ class GitHubSkill(Skill):
                      params={"query": "what to search"}, risk=Risk.SAFE,
                      keywords=("search github", "search repos", "find a repo",
                                "github search")),
+            ToolSpec(name="github.analyze",
+                     description="Analyze/compare your repos (best, by language, recommend).",
+                     params={"text": "the question"}, risk=Risk.SAFE,
+                     keywords=("best project", "best repo", "which project", "which repo",
+                               "which of my", "analyze my github", "analyze my repos",
+                               "projects on github", "repos on github", "on github",
+                               "summarize my github", "recommend a project", "recommend a repo",
+                               "language projects")),
             ToolSpec(name="github.repos", description="List your GitHub repositories.",
                      risk=Risk.SAFE,  # catch-all github handler
                      keywords=("repos", "repo ", "repositories", "github", "my repos",
@@ -62,6 +72,8 @@ class GitHubSkill(Skill):
 
     async def execute(self, tool: str, **kwargs) -> Any:
         try:
+            if tool == "github.analyze":
+                return await self._analyze(kwargs.get("_raw") or kwargs.get("text") or "")
             return self._dispatch(tool, kwargs)
         except Exception as exc:
             msg = str(exc)
@@ -117,6 +129,23 @@ class GitHubSkill(Skill):
             created = self.client.create_issue(owner, repo, title)
             return f"✅ Created issue #{created.get('number')} in {owner}/{repo}: {title}"
         raise ValueError(f"Unknown tool: {tool}")
+
+    async def _analyze(self, question: str) -> str:
+        repos = self.client.list_repos()
+        if not repos:
+            return "No repositories found."
+        if self.brain is None or not self.brain.can_think():
+            return ("Analysis needs the local model — start `ollama serve`. "
+                    f"(You have {len(repos)} repos.)")
+        table = "\n".join(
+            f"- {r.get('name')} [{r.get('language') or 'n/a'}] "
+            f"{(r.get('description') or '').strip()[:70]}" for r in repos)
+        resp = await self.brain.complete(
+            f"Here are the user's GitHub repositories:\n{table}\n\n"
+            f"Their question: {question}\n"
+            f"Answer specifically, naming the actual repos. Be concise.",
+            task=Task.REASON, max_tokens=320)
+        return resp.text.strip() or "I couldn't form an analysis."
 
     # ------------------------------------------------------------------ helpers
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from core.schemas.goal import Goal
+from engines.reasoning.llm import LLMEngine, LLMResponse, Task
 from main import build_orchestrator
 from skills.github.skill import GitHubSkill
 
@@ -72,10 +73,36 @@ async def test_github_routing():
     orch = build_orchestrator()
     for text, expected in {
         "my repos": "github.repos",
+        "check all the repo i have in github": "github.repos",
         "my pull requests": "github.prs",
         "create an issue in a/b: hi": "github.create_issue",
         "search github for fastapi": "github.search",
         "my github profile": "github.me",
+        "what's the best project i have on github": "github.analyze",
+        "what are my java projects on github": "github.analyze",
+        "which of my repos should i polish": "github.analyze",
     }.items():
         plan = await orch.planner.plan(Goal(text=text))
         assert plan.steps[0].tool == expected, f"{text!r} -> {plan.steps[0].tool}"
+
+
+class _AnalyzeBrain(LLMEngine):
+    def can_think(self):
+        return True
+
+    async def complete(self, prompt, task=Task.REASON, **kwargs):
+        # sees the repo table -> "answers" by echoing a repo it saw
+        return LLMResponse(text="Your strongest is ORIGAMI (Python).")
+
+
+async def test_analyze_uses_brain_over_repo_data():
+    from engines.reasoning.llm import LLMEngine as _LE  # noqa
+    skill = GitHubSkill(client=FakeGitHub(), brain=_AnalyzeBrain())
+    out = await skill.execute("github.analyze", _raw="what's my best project")
+    assert "ORIGAMI" in out
+
+
+async def test_analyze_without_model_is_graceful():
+    skill = GitHubSkill(client=FakeGitHub(), brain=None)
+    out = await skill.execute("github.analyze", _raw="best project")
+    assert "ollama" in out.lower()
