@@ -26,6 +26,7 @@ from skills.assistant.skill import AssistantSkill
 from skills.calendar.skill import CalendarSkill
 from skills.desktop.skill import DesktopSkill
 from skills.email.skill import EmailSkill
+from skills.github.skill import GitHubSkill
 from skills.goals.skill import GoalsSkill
 from skills.memory.skill import MemorySkill
 from skills.profile.skill import ProfileSkill
@@ -77,6 +78,7 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, YouTubeSkill())
     register_skill(registry, CalendarSkill())
     register_skill(registry, ProfileSkill(profile=profile))
+    register_skill(registry, GitHubSkill())
     register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))

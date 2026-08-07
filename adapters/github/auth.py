@@ -11,8 +11,9 @@ import os
 import time
 from typing import Optional
 
-import jwt  # PyJWT
 import requests
+# NOTE: `jwt` (PyJWT) is imported lazily inside _generate_jwt() so that the common
+# PAT mode (GITHUB_TOKEN) works without PyJWT installed. Only GitHub-App mode needs it.
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ class GitHubAuth:
 
     def _generate_jwt(self) -> str:
         """Generate a short-lived JWT for GitHub App authentication."""
+        import jwt  # PyJWT — lazy so PAT mode doesn't require it
         if not self._private_key_path:
             raise GitHubAuthError("GITHUB_PRIVATE_KEY_PATH not set.")
         try:
