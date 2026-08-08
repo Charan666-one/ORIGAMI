@@ -14,6 +14,7 @@ Pull the models you want (only what you'll use):
 from __future__ import annotations
 
 import os
+import time
 from typing import List
 
 import requests
@@ -42,27 +43,26 @@ class OllamaProvider(LLMEngine):
     is_cloud = False
 
     def __init__(self, host: str | None = None, timeout: int | None = None,
-                 keep_alive: str = "10m") -> None:
+                 keep_alive: str = "10m", runtime=None, resources=None) -> None:
         self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
         # hard cap per call so a hung/thrashing model can never wait forever
         self.timeout = timeout or int(os.getenv("ORIGAMI_LLM_TIMEOUT", "60"))
         self.keep_alive = keep_alive  # keep the model warm in RAM between commands
         self._installed: List[str] | None = None
+        self.last_latency = 0.0
+        if runtime is None:
+            from engines.reasoning.runtime import OllamaRuntime
+            runtime = OllamaRuntime(host=self.host, resources=resources)
+        #: owns start/health/recovery so the user never runs `ollama serve`
+        self.runtime = runtime
 
     def is_available(self) -> bool:
-        try:
-            resp = requests.get(f"{self.host}/api/tags", timeout=2)
-            return resp.status_code == 200
-        except Exception:
-            return False
+        """Available if the service is reachable — starting it if it isn't."""
+        return self.runtime.ensure()
 
     def installed_models(self) -> List[str]:
         if self._installed is None:
-            try:
-                data = requests.get(f"{self.host}/api/tags", timeout=3).json()
-                self._installed = [m["name"] for m in data.get("models", [])]
-            except Exception:
-                self._installed = []
+            self._installed = self.runtime.models(refresh=True)
         return self._installed
 
     def model_for(self, task: Task, level: Level = Level.L2) -> str | None:
@@ -81,10 +81,28 @@ class OllamaProvider(LLMEngine):
         return installed[0] if installed else None
 
     async def complete(self, prompt: str, task: Task = Task.REASON, **kwargs) -> LLMResponse:
+        from engines.reasoning.runtime import BrainState
+
         level = kwargs.get("level", Level.L2)
+        # 1. make sure the brain is actually up (starts it if it isn't)
+        if not self.runtime.ensure():
+            raise RuntimeError(self._unavailable_message())
+
         model = kwargs.get("model") or self.model_for(task, level)
         if not model:
-            raise RuntimeError("No Ollama model installed. Run e.g. `ollama pull llama3.2:3b`.")
+            raise RuntimeError('ORIGAMI Brain has no model installed. '
+                               'Approve one with: origami "install the brain"')
+
+        # 2. resource safety — downgrade rather than overload the machine
+        check = self.runtime.can_load(model)
+        if not check["ok"]:
+            smaller = self.runtime.smaller_than(model)
+            if smaller:
+                model = smaller
+            else:
+                self.runtime.state = BrainState.RESOURCE_LIMITED
+                raise RuntimeError(f"Not enough memory for the Brain ({check['reason']}). "
+                                   f"Close some apps or install a smaller model.")
 
         # shorter cap for fast/simple asks -> snappier; more room for standard work
         default_tokens = 256 if level is Level.L1 else 700
@@ -103,15 +121,36 @@ class OllamaProvider(LLMEngine):
         if _is_thinking_model(model):
             payload["think"] = False  # skip slow hidden reasoning on 8GB
 
+        self.runtime.state = BrainState.THINKING
+        started = time.perf_counter()
         try:
             # (connect, read): fail fast if the server is down; cap total read time
             resp = requests.post(f"{self.host}/api/generate", json=payload,
                                  timeout=(5, self.timeout))
             resp.raise_for_status()
         except requests.exceptions.Timeout as exc:
+            self.runtime.state = BrainState.READY
             raise RuntimeError(
                 f"The local model took over {self.timeout}s — stopped waiting. Try a "
                 f"shorter request, a smaller/faster model, or raise ORIGAMI_LLM_TIMEOUT."
             ) from exc
+        except requests.exceptions.RequestException as exc:
+            # 3. the service died mid-flight — recover once, then retry
+            if self.runtime.recover():
+                resp = requests.post(f"{self.host}/api/generate", json=payload,
+                                     timeout=(5, self.timeout))
+                resp.raise_for_status()
+            else:
+                self.runtime.state = BrainState.ERROR
+                raise RuntimeError("ORIGAMI Brain is temporarily unavailable.") from exc
+
         data = resp.json()
+        self.last_latency = round(time.perf_counter() - started, 2)
+        self.runtime.state = BrainState.READY
         return LLMResponse(text=data.get("response", "").strip(), model=model, raw=data)
+
+    def _unavailable_message(self) -> str:
+        if not self.runtime.is_installed():
+            return ("ORIGAMI Brain isn't installed. Install the local runtime with "
+                    f"`{self.runtime.install_hint()}` — then I'll handle the rest.")
+        return "ORIGAMI Brain is temporarily unavailable."
