@@ -103,14 +103,35 @@ class BrainManager(LLMEngine):
         self.last_decision = Decision(self._echo.name, Level.L1, "no model available")
         return self._echo, Level.L1
 
+    def _short_context(self) -> str:
+        """One line of identity for quick requests — enough to be personal, not
+        enough to derail a two-word question.
+
+        Note: the assistant's name is deliberately NOT used here. Small models
+        latch onto "ORIGAMI" and start talking about folded paper.
+        """
+        for line in self.system_context.splitlines():
+            if "USER PROFILE" in line.upper() and "—" in line:
+                who = line.split("—", 1)[1].split("(")[0].strip(" *#").split()[-1]
+                return (f"You are a concise personal assistant for {who}. "
+                        f"Answer the question directly in one or two sentences.")
+        return ("You are a concise personal assistant. Answer directly in one or "
+                "two sentences.")
+
     async def _run(self, task: Task, text: str, **kwargs) -> str:
         provider, level = self.decide(task, text)  # classify on the raw request
         prompt = text
-        # inject the persistent user context for personal reasoning/writing (not
-        # for summarize/code, which act on given content)
+        # Inject the persistent user context for personal reasoning/writing (not
+        # for summarize/code, which act on given content). Quick L1 asks get only
+        # a one-line identity: dumping the whole profile turned "say hello" into a
+        # career consultation.
         if self.system_context and task in (Task.REASON, Task.GENERATE):
-            prompt = (f"{self.system_context}\n\n---\n"
-                      f"Given the above about the user, respond to their request:\n{text}")
+            if level is Level.L1:
+                prompt = (f"{self._short_context()}\n\nRespond briefly and directly "
+                          f"to: {text}")
+            else:
+                prompt = (f"{self.system_context}\n\n---\n"
+                          f"Given the above about the user, respond to their request:\n{text}")
         method = getattr(provider, task.value)  # provider.reason/generate/summarize/code
         return await method(prompt, level=level, **kwargs)
 

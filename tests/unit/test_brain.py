@@ -120,10 +120,15 @@ async def test_system_context_injected_into_reasoning():
             return LLMResponse(text="ok")
 
     bm = BrainManager(providers=[Capture()], resources=NormalResources(),
-                      system_context="THE USER IS CHARAN, a CS student.")
-    await bm.reason("what should I focus on")
-    assert "CHARAN" in seen["prompt"]
-    assert "what should I focus on" in seen["prompt"]
+                      system_context="# USER PROFILE — Charan (ctx)\nTHE USER IS CHARAN.")
+    # substantial request -> full profile
+    await bm.reason("write a detailed plan for my internship applications")
+    assert "THE USER IS CHARAN" in seen["prompt"]
+
+    # quick request -> one-line identity only (full profile would derail it)
+    await bm.reason("say hi")
+    assert "THE USER IS CHARAN" not in seen["prompt"]
+    assert "Charan" in seen["prompt"] and "say hi" in seen["prompt"]
 
 
 def test_resource_monitor_snapshot_has_fields():

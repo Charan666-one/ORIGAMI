@@ -40,12 +40,24 @@ class MemoryEngine(ABC):
     @abstractmethod
     def search(self, query: str, limit: int = 5) -> List[MemoryRecord]: ...
 
-    def context_for(self, query: str, limit: int = 5) -> str:
-        """A compact bullet list of relevant memories to prepend to a brain prompt."""
-        hits = self.search(query, limit=limit)
+    def context_for(self, query: str, limit: int = 5, min_ratio: float = 0.4) -> str:
+        """Relevant memories to prepend to a brain prompt.
+
+        Relevance is judged by how much of the *question* a memory covers, not by
+        raw overlap. One generic word in common (e.g. "project" in "why finish a
+        project") used to drag unrelated memories into every answer and derail it;
+        one distinctive word that is half the question (e.g. "origami" in "what is
+        my origami project") is a genuine hit.
+        """
+        q = _tokens(query)
+        if not q:
+            return ""
+        hits = [r for r in self.search(query, limit=limit * 2)
+                if len(q & _tokens(r.text)) / len(q) >= min_ratio
+                or len(q & _tokens(r.text)) >= 3]
         if not hits:
             return ""
-        return "\n".join(f"- {r.text}" for r in hits)
+        return "\n".join(f"- {r.text}" for r in hits[:limit])
 
 
 class JSONMemory(MemoryEngine):

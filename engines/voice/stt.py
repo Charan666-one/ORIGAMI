@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import queue
 import threading
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
@@ -106,24 +107,30 @@ class Microphone:
         spoke = False
         with sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="float32",
                             blocksize=block, callback=cb):
-            elapsed = 0.0
-            while elapsed < max_seconds:
+            # Wall-clock deadline. (Counting only received audio made a 3s limit
+            # take 8s, because stream start-up and queue stalls weren't counted —
+            # that lag is what made voice feel unresponsive.)
+            deadline = time.monotonic() + max_seconds
+            lead_in = time.monotonic() + 8.0   # give up if the mic never delivers
+            while time.monotonic() < deadline:
                 try:
-                    data = q.get(timeout=0.5)
+                    data = q.get(timeout=0.2)
                 except queue.Empty:
+                    if not chunks and time.monotonic() > lead_in:
+                        break                  # mic produced nothing at all
                     continue
                 chunks.append(data)
-                elapsed += len(data) / self.sample_rate
                 level = float(np.abs(data).mean())
                 if level > threshold:
                     spoke, silent_for = True, 0.0
                 else:
                     silent_for += len(data) / self.sample_rate
                     if spoke and silent_for >= silence_seconds:
-                        break
+                        break                  # they finished talking
         if not chunks:
             return None
-        return np.concatenate(chunks, axis=0).flatten()
+        audio = np.concatenate(chunks, axis=0).flatten()
+        return audio if float(np.abs(audio).mean()) > threshold * 0.4 else None
 
 
 class RecognizerManager(SpeechRecognizer):
