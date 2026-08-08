@@ -22,9 +22,18 @@ _NEEDS_MODEL = (
 
 
 class AssistantSkill(Skill):
-    def __init__(self, brain: Any, memory: Any = None) -> None:
+    def __init__(self, brain: Any, memory: Any = None, web: Any = None) -> None:
         self.brain = brain
         self.memory = memory  # optional: enriches answers with what ORIGAMI knows
+        self._web = web       # optional: current information from the real world
+
+    @property
+    def web(self):
+        """Web Intelligence, built lazily so a purely local ask costs nothing."""
+        if self._web is None:
+            from engines.web.intelligence import WebIntelligence
+            self._web = WebIntelligence(brain=self.brain)
+        return self._web
 
     def specs(self) -> List[ToolSpec]:
         return [
@@ -54,14 +63,33 @@ class AssistantSkill(Skill):
         ]
 
     async def execute(self, tool: str, **kwargs) -> Any:
+        if tool == "assistant.ask":
+            prompt = _arg(kwargs, "prompt")
+            # Decide automatically whether this needs the real world *now*. The
+            # user never has to say "search the web".
+            from engines.web.freshness import decide, is_uncertain
+            if decide(prompt).needs_web:
+                return (await self.web.answer(prompt, deep=False)).render()
+
+            if not self.brain.can_think():
+                return _NEEDS_MODEL
+            local = await self.brain.reason(self._with_context(prompt))
+
+            # DON'T KNOW → SEARCH: if the local answer hedges, it is worthless.
+            # Escalating on the *answer* beats trying to predict what the model
+            # knows, so unknown topics reach the web without any topic list.
+            if is_uncertain(local):
+                web = await self.web.answer(prompt, deep=False)
+                if not web.offline and web.sources:
+                    return web.render()
+            return local
+
         if not self.brain.can_think():
             return _NEEDS_MODEL
         if tool == "assistant.write":
             return await self.brain.generate(self._with_context(_arg(kwargs, "prompt")))
         if tool == "assistant.summarize":
             return await self.brain.summarize(_arg(kwargs, "text"))
-        if tool == "assistant.ask":
-            return await self.brain.reason(self._with_context(_arg(kwargs, "prompt")))
         raise ValueError(f"Unknown tool: {tool}")
 
     def _with_context(self, prompt: str) -> str:

@@ -135,7 +135,20 @@ def build_state(orchestrator=None, health_cache: Dict[str, Any] | None = None) -
     # --- Voice Engine --------------------------------------------------------
     state["voice"] = _voice()
 
+    # --- Web Intelligence -----------------------------------------------------
+    state["web"] = _web()
+
     return state
+
+
+def _web() -> Dict[str, Any]:
+    """Web Intelligence readiness (no network call — just connectivity + provider)."""
+    try:
+        from engines.web.intelligence import SearchRetriever
+        r = SearchRetriever()
+        return {"provider": r.name, "online": r.is_online(), "state": "IDLE"}
+    except Exception:
+        return {"provider": None, "online": False, "state": "OFFLINE"}
 
 
 def _voice() -> Dict[str, Any]:
