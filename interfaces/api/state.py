@@ -132,7 +132,23 @@ def build_state(orchestrator=None, health_cache: Dict[str, Any] | None = None) -
     # --- Authentication Engine ----------------------------------------------
     state["auth"] = _auth()
 
+    # --- Voice Engine --------------------------------------------------------
+    state["voice"] = _voice()
+
     return state
+
+
+def _voice() -> Dict[str, Any]:
+    """Voice stack readiness (cheap checks only — no model is loaded here)."""
+    try:
+        from engines.voice.stt import RecognizerManager
+        from engines.voice.tts import SynthesizerManager
+        stt, tts = RecognizerManager(), SynthesizerManager()
+        return {"can_hear": stt.is_available(), "can_speak": tts.is_available(),
+                "stt": (stt.active().name if stt.active() else None),
+                "tts": (tts.active().name if tts.active() else None)}
+    except Exception:
+        return {"can_hear": False, "can_speak": False}
 
 
 def _auth() -> Dict[str, Any]:

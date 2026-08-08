@@ -505,6 +505,12 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font);overflow:hidd
         <div id="events"><div class="muted">Loading…</div></div>
       </div>
 
+      <div class="panel" style="animation-delay:.22s">
+        <div class="ph"><h3>IDENTITY &amp; VOICE</h3>
+          <button class="viewall" data-cmd="auth status">Details →</button></div>
+        <div id="identity"><div class="muted">Loading…</div></div>
+      </div>
+
       <div class="panel" style="animation-delay:.24s">
         <div class="ph"><h3>CAPABILITY REGISTRY</h3><span class="x">✕</span></div>
         <div class="caps" id="caps"></div>
@@ -737,6 +743,19 @@ function render(d){
   document.getElementById('npTitle').textContent=np.active?np.title:'Nothing playing';
   document.getElementById('npArtist').textContent=np.active?np.artist:'say “play some lofi”';
   if(np.active&&np.art)document.getElementById('npArt').src=np.art;
+
+  // identity + voice
+  const au=d.auth||{}, se=au.session||{};
+  const lockIcon = se.active?'🔓':au.locked_out?'⛔':au.enrolled?'🔒':'○';
+  const lockTxt  = se.active?('active as '+(se.user||'owner')):au.locked_out?'locked out':
+                   au.enrolled?'locked':'nobody enrolled';
+  document.getElementById('identity').innerHTML=`
+    <div class="brainrow"><span>SESSION</span><b style="color:${se.active?'var(--green)':au.locked_out?'var(--red)':'var(--muted)'}">${lockIcon} ${lockTxt}</b></div>
+    <div class="brainrow"><span>ENROLLED</span><b>${au.enrolled?esc(au.user||'owner'):'—'}</b></div>
+    <div class="brainrow"><span>WAKE</span><b>${au.wake_phrase?'“'+esc(au.wake_phrase)+'”':'—'}</b></div>
+    <div class="brainrow"><span>VERIFIER</span><b>${esc(au.verifier||'—')}</b></div>
+    <div class="brainrow"><span>VOICE</span><b>${(d.voice&&d.voice.can_hear)?'🎙️ hear + speak':(d.voice&&d.voice.can_speak)?'🔊 speak only':'—'}</b></div>
+    <div class="caps" style="margin-top:8px">${(au.methods||[]).map(m=>`<span class="cap">${esc(m)}</span>`).join('')||'<span class="muted">no factors active</span>'}</div>`;
 
   document.getElementById('caps').innerHTML=(d.capabilities||[]).map(c=>
     `<span class="cap ${c.risk!=='safe'?'gate':''}" title="${c.tools} tools · ${c.risk}">${esc(c.name)} ${c.tools}</span>`).join('');
