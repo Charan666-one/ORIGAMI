@@ -32,7 +32,7 @@ class AssistantSkill(Skill):
                 name="assistant.write",
                 description="Write content (essay, message, note) with the AI brain.",
                 params={"prompt": "what to write"},
-                risk=Risk.SAFE,
+                risk=Risk.SAFE, full_text=True,
                 keywords=("write ", "compose ", "draft "),
             ),
             ToolSpec(
@@ -46,7 +46,7 @@ class AssistantSkill(Skill):
                 name="assistant.ask",
                 description="Answer a question, chat, or reason about anything with the AI brain.",
                 params={"prompt": "the question or request"},
-                risk=Risk.SAFE,
+                risk=Risk.SAFE, full_text=True,
                 keywords=("ask ", "explain", "what is", "what are", "how do",
                           "how does", "why ", "tell me", "who is"),
                 fallback=True,  # anything not matched by another tool becomes a chat

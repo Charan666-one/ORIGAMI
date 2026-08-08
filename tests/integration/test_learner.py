@@ -45,3 +45,28 @@ async def test_orchestrator_learns_from_requests(tmp_path):
 
 def mem_texts(mem):
     return [r.text for r in mem.all()]
+
+
+# --------------------------------------------- trigger words must not be stripped
+
+async def test_question_words_survive_routing():
+    """Regression: the router stripped the matched keyword, so "why finish a
+    project" reached the model as "finish a project" — a command, not a question.
+    Every strange answer traced back to this."""
+    orch = build_orchestrator()
+    plan = await orch.planner.plan(Goal(text="in one sentence, why finish a project"))
+    assert plan.steps[0].tool == "assistant.ask"
+    assert plan.steps[0].args["prompt"] == "in one sentence, why finish a project"
+
+
+async def test_write_requests_keep_their_verb():
+    orch = build_orchestrator()
+    plan = await orch.planner.plan(Goal(text="write a haiku about the sea"))
+    assert plan.steps[0].args["prompt"] == "write a haiku about the sea"
+
+
+async def test_non_semantic_keywords_are_still_stripped():
+    """"play some lofi" -> query "some lofi": here the verb is not part of the value."""
+    orch = build_orchestrator()
+    plan = await orch.planner.plan(Goal(text="play some lofi"))
+    assert plan.steps[0].args["query"] == "some lofi"

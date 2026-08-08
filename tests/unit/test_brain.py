@@ -125,10 +125,13 @@ async def test_system_context_injected_into_reasoning():
     await bm.reason("write a detailed plan for my internship applications")
     assert "THE USER IS CHARAN" in seen["prompt"]
 
-    # quick request -> one-line identity only (full profile would derail it)
+    # quick request -> brevity instruction only. No profile AND no persona: a
+    # persona made the model role-play doing tasks instead of answering.
     await bm.reason("say hi")
     assert "THE USER IS CHARAN" not in seen["prompt"]
-    assert "Charan" in seen["prompt"] and "say hi" in seen["prompt"]
+    assert "personal assistant" not in seen["prompt"].lower()
+    assert seen["prompt"].endswith("say hi")
+    assert "one or two sentences" in seen["prompt"]
 
 
 def test_resource_monitor_snapshot_has_fields():

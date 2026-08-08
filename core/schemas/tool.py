@@ -30,3 +30,7 @@ class ToolSpec:
     risk: Risk = Risk.SAFE
     keywords: Tuple[str, ...] = ()  # phrases that route intent to this tool
     fallback: bool = False          # catch-all when no keyword matches (chat -> brain)
+    #: Pass the WHOLE request instead of the text after the keyword. Essential when
+    #: the trigger word carries meaning: stripping "why" from "why finish a project"
+    #: turns a question into a command, and the model answers the wrong thing.
+    full_text: bool = False

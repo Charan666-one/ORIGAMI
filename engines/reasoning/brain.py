@@ -103,20 +103,17 @@ class BrainManager(LLMEngine):
         self.last_decision = Decision(self._echo.name, Level.L1, "no model available")
         return self._echo, Level.L1
 
-    def _short_context(self) -> str:
-        """One line of identity for quick requests — enough to be personal, not
-        enough to derail a two-word question.
+    #: Quick asks get a brevity instruction and NOTHING else.
+    #:
+    #: Measured: adding a persona ("You are a personal assistant for Charan") made
+    #: the model role-play *doing tasks* — "why finish a project?" came back as
+    #: "I'll notify Charan's team the project is complete", while the same model
+    #: answers the bare question correctly. Identity helps on substantial requests
+    #: (L2+); on a quick factual one it just invites acting instead of answering.
+    SHORT_INSTRUCTION = "Answer the question directly in one or two sentences."
 
-        Note: the assistant's name is deliberately NOT used here. Small models
-        latch onto "ORIGAMI" and start talking about folded paper.
-        """
-        for line in self.system_context.splitlines():
-            if "USER PROFILE" in line.upper() and "—" in line:
-                who = line.split("—", 1)[1].split("(")[0].strip(" *#").split()[-1]
-                return (f"You are a concise personal assistant for {who}. "
-                        f"Answer the question directly in one or two sentences.")
-        return ("You are a concise personal assistant. Answer directly in one or "
-                "two sentences.")
+    def _short_context(self) -> str:
+        return self.SHORT_INSTRUCTION
 
     async def _run(self, task: Task, text: str, **kwargs) -> str:
         provider, level = self.decide(task, text)  # classify on the raw request
@@ -127,8 +124,7 @@ class BrainManager(LLMEngine):
         # career consultation.
         if self.system_context and task in (Task.REASON, Task.GENERATE):
             if level is Level.L1:
-                prompt = (f"{self._short_context()}\n\nRespond briefly and directly "
-                          f"to: {text}")
+                prompt = f"{self._short_context()}\n\n{text}"
             else:
                 prompt = (f"{self.system_context}\n\n---\n"
                           f"Given the above about the user, respond to their request:\n{text}")

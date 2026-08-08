@@ -129,7 +129,8 @@ def keyword_match_plan(goal: Goal, tools: List[ToolSpec]) -> Plan:
                 args = {"_raw": goal.text}  # full text, for skills that need context
                 if spec.params:
                     first_param = next(iter(spec.params))
-                    args[first_param] = _residual(goal.text, kw) or goal.text
+                    args[first_param] = (goal.text if spec.full_text
+                                         else _residual(goal.text, kw) or goal.text)
                 return Plan(
                     goal=goal,
                     steps=[Step(tool=spec.name, args=args, reason=f"matched '{kw}'")],
