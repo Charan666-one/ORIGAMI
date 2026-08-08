@@ -100,18 +100,42 @@ def main() -> int:
         from interfaces.cli.monitor import run_monitor
         return run_monitor()
 
-    if args and args[0] in ("voice", "talk"):
+    if args and args[0] in ("voice", "talk", "listen", "speak"):
         from interfaces.cli.voice import run_voice
         return run_voice()
+
+    # Near-miss launcher words: a bare one-word command that clearly means "open
+    # the dashboard" should do that, not fall through to chat.
+    if args and len(args) == 1 and args[0].lower() in (
+            "desktop", "dash", "board", "gui", "web", "home", "panel", "screen"):
+        print(f"(“{args[0]}” isn’t a command — opening the dashboard. "
+              f"Use: origami dashboard)")
+        args = ["dashboard"]
 
     if args and args[0] in ("dashboard", "ui"):
         import webbrowser
         import uvicorn
         port = int(args[1]) if len(args) > 1 and args[1].isdigit() else 8420
         url = f"http://127.0.0.1:{port}"
+
+        # already serving? just open it rather than failing on a busy port
+        try:
+            import requests
+            if requests.get(url, timeout=2).status_code == 200:
+                print(f"🩻  ORIGAMI dashboard already running → {url}")
+                webbrowser.open(url)
+                return 0
+        except Exception:
+            pass
+
         print(f"🩻  ORIGAMI dashboard → {url}   (Ctrl+C to stop)")
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
-        uvicorn.run("interfaces.api.app:app", host="127.0.0.1", port=port, log_level="warning")
+        try:
+            uvicorn.run("interfaces.api.app:app", host="127.0.0.1", port=port,
+                        log_level="warning")
+        except OSError as exc:
+            print(f"Couldn't start on port {port} ({exc}). Try: origami dashboard 8421")
+            return 1
         return 0
 
     text = " ".join(args).strip()
