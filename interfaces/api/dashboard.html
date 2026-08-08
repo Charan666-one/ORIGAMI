@@ -753,6 +753,7 @@ function render(d){
     <div class="brainrow"><span>SESSION</span><b style="color:${se.active?'var(--green)':au.locked_out?'var(--red)':'var(--muted)'}">${lockIcon} ${lockTxt}</b></div>
     <div class="brainrow"><span>ENROLLED</span><b>${au.enrolled?esc(au.user||'owner'):'—'}</b></div>
     <div class="brainrow"><span>WAKE</span><b>${au.wake_phrase?'“'+esc(au.wake_phrase)+'”':'—'}</b></div>
+    <div class="brainrow"><span>LISTENING</span><b style="color:${au.listening?'var(--green)':'var(--muted)'}">${au.listening?'👂 passive on':'○ off'}${au.requires_voice?' · voice required':''}</b></div>
     <div class="brainrow"><span>VERIFIER</span><b>${esc(au.verifier||'—')}</b></div>
     <div class="brainrow"><span>VOICE</span><b>${(d.voice&&d.voice.can_hear)?'🎙️ hear + speak':(d.voice&&d.voice.can_speak)?'🔊 speak only':'—'}</b></div>
     <div class="caps" style="margin-top:8px">${(au.methods||[]).map(m=>`<span class="cap">${esc(m)}</span>`).join('')||'<span class="muted">no factors active</span>'}</div>`;

@@ -100,7 +100,11 @@ def main() -> int:
         from interfaces.cli.monitor import run_monitor
         return run_monitor()
 
-    if args and args[0] in ("voice", "talk", "listen", "speak"):
+    if args and args[0] in ("listen", "wake", "passive"):
+        from interfaces.cli.listen import run_listen
+        return run_listen()
+
+    if args and args[0] in ("voice", "talk", "speak"):
         from interfaces.cli.voice import run_voice
         return run_voice()
 

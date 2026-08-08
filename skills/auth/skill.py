@@ -11,11 +11,11 @@ from typing import Any, List, Optional
 from core.schemas.tool import Risk, ToolSpec
 from skills.base import Skill
 
-ENROL_PROMPTS = [
-    "Say your wake phrase: I am Iron Man",
-    "Again, naturally: I am Iron Man",
-    "Once more, a little slower: I am Iron Man",
-]
+def enrol_prompts(phrase: str) -> list:
+    """Prompts follow the *configured* wake phrase — nothing is hardcoded."""
+    return [f'Say your wake phrase: "{phrase}"',
+            f'Again, naturally: "{phrase}"',
+            f'Once more, a little slower: "{phrase}"']
 
 
 class AuthSkill(Skill):
@@ -55,6 +55,12 @@ class AuthSkill(Skill):
                      keywords=("lock origami", "lock yourself", "lock the session", "lock down")),
             ToolSpec(name="auth.unlock", description="Unlock the session.",
                      risk=Risk.SAFE, keywords=("unlock origami", "unlock the session", "unlock")),
+            ToolSpec(name="auth.wake_phrase",
+                     description="Change the wake phrase ORIGAMI listens for.",
+                     params={"text": "the new wake phrase"}, risk=Risk.CONFIRM,
+                     keywords=("change my wake phrase", "change the wake phrase",
+                               "set my wake phrase", "set the wake phrase",
+                               "new wake phrase", "wake phrase to")),
             ToolSpec(name="auth.status",
                      description="Who ORIGAMI thinks you are + authentication methods.",
                      risk=Risk.SAFE,
@@ -75,9 +81,21 @@ class AuthSkill(Skill):
             attempt = self.engine.unlock(source="cli")
             return ("🔓 Unlocked." if attempt.ok
                     else f"Couldn't unlock: {attempt.reason}")
+        if tool == "auth.wake_phrase":
+            return self._set_phrase((kwargs.get("text") or "").strip())
         if tool == "auth.status":
             return self._status()
         raise ValueError(f"Unknown tool: {tool}")
+
+    def _set_phrase(self, text: str) -> str:
+        import re
+        phrase = re.sub(r"^.*?\bto\b\s*", "", text, flags=re.IGNORECASE).strip(" \"'.,!?")
+        phrase = phrase or text.strip(" \"'.,!?")
+        if len(phrase) < 3:
+            return 'What should the wake phrase be? e.g. change my wake phrase to "hey origami"'
+        cfg = self.engine.settings.update(wake_phrase=phrase)
+        return (f'🔑 Wake phrase is now "{cfg.wake_phrase}".\n'
+                f"   Your enrolled voice must still match — the phrase alone never activates me.")
 
     # ------------------------------------------------------------------ enrol
 
@@ -87,7 +105,8 @@ class AuthSkill(Skill):
                     f"   → {self.recognizer.install_hint()}")
         samples = []
         say = self._speak or (lambda t: None)
-        for prompt in ENROL_PROMPTS:
+        phrase = self.engine.settings.load().wake_phrase
+        for prompt in enrol_prompts(phrase):
             print(f"🎙️  {prompt}")
             say(prompt)
             audio = self.recognizer.mic.record(max_seconds=6.0, silence_seconds=1.2)
@@ -96,7 +115,7 @@ class AuthSkill(Skill):
         if not samples:
             return "I didn't hear anything — enrolment cancelled."
 
-        result = self.engine.enroll(samples)
+        result = self.engine.enroll(samples, wake_phrase=phrase)
         if not result.get("ok"):
             return f"Enrolment failed: {result.get('error')}"
         return (f"✅ Voice enrolled — {result['samples']} samples "

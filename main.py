@@ -83,6 +83,8 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, CodeSkill(brain=brain, memory=memory, store=codebases))
     register_skill(registry, ProjectsSkill())  # before Desktop: "open careerlens" beats "open "
     register_skill(registry, GoalsSkill(goals=goals, brain=brain))
+    # Auth before Reminder: "change my wake phrase" must not hit reminder.change
+    register_skill(registry, AuthSkill())
     register_skill(registry, ReminderSkill(scheduler=scheduler))
     register_skill(registry, TerminalSkill(executor=terminal_executor))
     register_skill(registry, DesktopSkill(adapter=desktop_adapter))
@@ -93,7 +95,6 @@ def build_orchestrator(confirmer=None, spotify_client=None, terminal_executor=No
     register_skill(registry, BrainSkill(brain=brain))
     register_skill(registry, HealthSkill())
     register_skill(registry, VoiceSkill())
-    register_skill(registry, AuthSkill())
     register_skill(registry, ResearchSkill(brain=brain))
     register_skill(registry, MemorySkill(memory=memory))
     register_skill(registry, EmailSkill(brain=brain))

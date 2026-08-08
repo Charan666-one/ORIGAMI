@@ -22,6 +22,7 @@ from engines.auth.methods import (AuthAttempt, AuthMethod, PinAuth, TrustedTermi
                                   VoiceAuth, planned_methods)
 from engines.auth.profile import AttemptLog, IdentityStore, VoiceProfile
 from engines.auth.session import Session
+from engines.auth.settings import WakeSettingsStore
 from engines.auth.verifier import best_verifier
 
 LOCKOUT_AFTER = 5          # failed attempts within the window
@@ -57,8 +58,10 @@ def level_for(tool: Optional[str], risk: str = "safe") -> Level:
 class AuthenticationEngine:
     def __init__(self, store: Optional[IdentityStore] = None, verifier=None,
                  session: Optional[Session] = None, log: Optional[AttemptLog] = None,
-                 methods: Optional[List[AuthMethod]] = None) -> None:
+                 methods: Optional[List[AuthMethod]] = None,
+                 settings: Optional[WakeSettingsStore] = None) -> None:
         self.store = store or IdentityStore()
+        self.settings = settings or WakeSettingsStore()
         self.verifier = verifier or best_verifier()
         self.session = session or Session()
         self.log = log or AttemptLog()
@@ -126,7 +129,20 @@ class AuthenticationEngine:
 
     def wake(self, audio=None, phrase: str = "") -> AuthAttempt:
         """Wake attempt: the phrase alone never activates ORIGAMI — the voice must
-        match too. An unknown voice is silently ignored."""
+        match too. An unknown voice is silently ignored.
+
+        The phrase and threshold come from settings, so changing the wake phrase is
+        configuration, never a code change."""
+        cfg = self.settings.load()
+        profile = self.store.load()
+        if profile is not None:
+            # settings are the source of truth for both
+            if profile.wake_phrase != cfg.wake_phrase or \
+                    profile.threshold != cfg.confidence_threshold:
+                profile.wake_phrase = cfg.wake_phrase
+                profile.threshold = cfg.confidence_threshold
+                self.store.save(profile)
+        self.session.timeout = cfg.session_timeout
         return self.authenticate(audio=audio, phrase=phrase, source="voice")
 
     # ------------------------------------------------------------ authorising

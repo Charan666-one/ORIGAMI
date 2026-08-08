@@ -155,8 +155,15 @@ def _auth() -> Dict[str, Any]:
     """Identity status for the dashboard (never exposes the embedding)."""
     try:
         from engines.auth.engine import AuthenticationEngine
-        s = AuthenticationEngine().status()
-        return {"enrolled": s["enrolled"], "user": s["user"],
+        from engines.auth.settings import WakeSettingsStore
+        eng = AuthenticationEngine()
+        s = eng.status()
+        cfg = WakeSettingsStore().load()
+        s["wake_phrase"] = cfg.wake_phrase
+        return {"listening": cfg.enabled, "detector": cfg.wake_detector,
+                "threshold": cfg.confidence_threshold,
+                "requires_voice": cfg.require_voice_match,
+                "enrolled": s["enrolled"], "user": s["user"],
                 "wake_phrase": s["wake_phrase"], "verifier": s["verifier"],
                 "session": s["session"], "locked_out": s["locked_out"],
                 "methods": [m["name"] for m in s["methods"] if m["available"]],
